@@ -1,115 +1,181 @@
-# Clean Architecture Template
+# CV Builder
 
-A production-ready .NET 10 Clean Architecture solution featuring Domain-Driven Design, CQRS, DAC (Discretionary Access Control) authorization, and comprehensive testing infrastructure.
+A production-ready AI-powered CV generation platform built with .NET 8 Modular Monolith architecture and React.
 
 ## Features
 
 ### Architecture
-- **Clean Architecture** - Strict layer separation: Domain → Application → Infrastructure → Web.Api
-- **CQRS Pattern** - Command/Query handlers with decorator pattern for validation and logging
-- **Result Pattern** - Typed error handling with `Result<T>` and `Error` types
-- **Domain Events** - Event dispatcher for eventual consistency
-- **Permission-based Authorization** - DAC with `resource:action` permission format
+- **Modular Monolith** - Five bounded contexts in a single deployment unit with schema-per-module PostgreSQL
+- **Vertical Slice** - Feature-centric folders where every file for a use case lives together
+- **CQRS Pattern** - MediatR for command/query dispatching with pipeline behaviors
+- **Result Pattern** - ErrorOr discriminated union for error handling without exceptions
+- **Background Jobs** - Hangfire with PostgreSQL persistence for AI generation
 
-### Core Layers
-- **SharedKernel** - Common DDD abstractions (Result, Error, Entity base classes)
-- **Domain Layer** - Entities, value objects, domain events, no external dependencies
-- **Application Layer** - CQRS, repository interfaces, FluentValidation, configuration models
-- **Infrastructure Layer** - EF Core, JWT auth, repositories, external services
-- **Web.Api Layer** - REST API with Controllers, middleware, API configuration
+### Module Structure
+- **Identity** - User authentication with JWT (RS256) + refresh token rotation
+- **CVProfile** - CV profile management with typed JSON sections (jsonb)
+- **JobDescription** - Job description input with Playwright URL scraping
+- **CVGeneration** - AI-powered CV tailoring with GPT-4o
+- **Templates** - Pre-defined template catalog with QuestPDF rendering
+- **Export** - PDF (QuestPDF) and DOCX (Open XML SDK) generation
+
+### Core Technologies
+
+| Concern | Technology |
+|---------|------------|
+| Backend | ASP.NET Core 8.0, Minimal APIs, Carter |
+| Database | PostgreSQL 16, Entity Framework Core 8 |
+| CQRS | MediatR 12.x, FluentValidation 11.x |
+| AI | OpenAI .NET SDK (GPT-4o, GPT-4o-mini) |
+| Background Jobs | Hangfire 1.8.x |
+| PDF Generation | QuestPDF 2024.x |
+| DOCX Generation | DocumentFormat.OpenXml 3.x |
+| OCR | Tesseract 5.x, PdfPig 0.1.x |
+| Web Scraping | Microsoft.Playwright 1.x |
+| Frontend | React 18.x, TypeScript 5.x, Vite 5.x |
+| State Management | TanStack Query 5.x, Zustand 4.x |
+| UI Components | shadcn/ui, Tailwind CSS 3.x |
 
 ### API Features
-- **API Versioning** - `[ApiVersion("1.0")]` with URL and header support
-- **Pagination** - `IPagedQuery<T>` and `PagedResult<T>` for list endpoints
-- **Rate Limiting** - Fixed window limiter (100 req/min, queue of 10)
-- **CORS** - Configured for cross-origin requests
-- **Health Checks** - `/health` endpoint with database connectivity check
-- **Swagger** - API documentation at `/swagger`
+- **Minimal APIs** - Less ceremony than controllers with Carter endpoint grouping
+- **RFC 7807 Problem Details** - Consistent error shape across all endpoints
+- **Rate Limiting** - Per-policy limits (auth: 20/15min, AI generation: 10/hr, global: 100/min)
+- **Health Checks** - `/health` with Npgsql and Hangfire readiness probes
+- **Swagger/Scalar** - API documentation
 
 ### Security
-- **JWT Authentication** - Bearer token with configurable expiration
-- **DAC Authorization** - Permission-based policies enforced via `IAuthorizationHandler`
-- **Password Hashing** - BCrypt via `IPasswordHasher`
-
-### Developer Experience
-- **Centralized Package Management** - `Directory.Packages.props` for consistent versions
-- **Global Using Directives** - Reduced boilerplate in Application layer
-- **Serilog Structured Logging** - With Seq integration for log aggregation
-- **Strongly-Typed Configuration** - `IOptions<T>` pattern for JwtSettings, DatabaseSettings
-
-### Testing
-- **Architecture Tests** - Layer dependency enforcement via ArchUnitNET
-- **Unit Tests** - xUnit + FluentAssertions + Moq
-- **Integration Tests** - WebApplicationFactory with in-memory database support
-
-## Architecture Rules
-
-This project follows strict architecture principles enforced via ArchUnitNET tests:
-
-- Domain layer has **no external dependencies**
-- Application layer depends only on **Domain and SharedKernel**
-- Infrastructure layer depends on **Application**
-- Web.Api layer depends on **Infrastructure**
-
-## Coding Standards
-
-- C# 12 primary constructors for dependency injection
-- Async/await for all I/O operations
-- Record types for immutable data structures
-- Explicit typing (use `var` only when evident from context)
-- Internal sealed classes by default
-- GUID identifiers for all entities
-- Use `is null` / `is not null` checks instead of `== null` / `!= null`
+- **JWT RS256** - Asymmetric tokens validated without signing key in frontend
+- **Token Rotation** - Refresh tokens rotated on each use with revocation
+- **Permission-based Auth** - DAC with resource:action format
+- **Soft-delete** - All user-owned entities implement ISoftDeletable
 
 ## Project Structure
 
 ```
-src/
-├── Application/
-│   ├── Configuration/     # JwtSettings, DatabaseSettings
-│   ├── Abstractions/       # Interfaces (repositories, messaging, auth)
-│   └── ...                 # Commands, Queries, Validators
-├── Domain/                 # Entities, Value Objects, Events
-├── Infrastructure/
-│   ├── Authentication/     # JWT, PasswordHasher, TokenProvider
-│   ├── Authorization/      # Permission-based auth handlers
-│   ├── Data/               # DevelopmentSeeder
-│   └── Database/           # EF Core DbContext, Repositories
-├── SharedKernel/          # Result, Error, Entity base classes
-└── Web.Api/
-    ├── Controllers/        # API endpoints
-    ├── Extensions/         # DI extensions
-    └── Infrastructure/     # Exception handler, CustomResults
-tests/
-├── ArchitectureTests/      # Layer dependency tests
-├── Application.UnitTests/  # Handler and validator tests
-└── Application.IntegrationTests/  # API integration tests
+TailorCV/
+├── TailorCV.slnx
+├── src/
+│   ├── TailorCV.Api/                      # Composition root
+│   │   ├── Program.cs                     # Middleware pipeline, DI composition
+│   │   ├── Middleware/                    # Global exception, request logging
+│   │   ├── Extensions/                    # Service collection, migration helpers
+│   │   └── Controllers/                   # (legacy, migrating to Carter)
+│   │
+│   ├── TailorCV.SharedKernel/             # Cross-cutting contracts
+│   │   ├── Entity.cs                      # Base entity with Id
+│   │   ├── Result.cs, Error.cs           # Result<T> discriminated union
+│   │   ├── Messaging/                     # ICommand, IQuery, handlers
+│   │   ├── Behaviors/                     # Validation, logging decorators
+│   │   └── Interfaces/                    # IDateTimeProvider, IApplicationDbContext
+│   │
+│   ├── TailorCV.Infrastructure/           # Shared infrastructure
+│   │   ├── Database/                      # ApplicationDbContext, interceptors
+│   │   ├── Authentication/                # TokenProvider, PasswordHasher, UserContext
+│   │   ├── Authorization/                  # Permission-based auth handlers
+│   │   └── DomainEvents/                   # Event dispatcher
+│   │
+│   └── Modules/
+│       ├── TailorCV.Modules.Identity/
+│       │   ├── Domain/                    # ApplicationUser, RefreshToken
+│       │   ├── Features/                  # Register, Login, Refresh, Logout
+│       │   └── Services/                  # JwtTokenGenerator, CurrentUserService
+│       │
+│       ├── TailorCV.Modules.CVProfile/
+│       │   ├── Domain/                    # CvProfile, CvSection, SectionType enum
+│       │   ├── Features/                  # CreateProfile, GetProfile, UpdateSection
+│       │   └── Services/                  # OcrService, AiCvTextParser
+│       │
+│       ├── TailorCV.Modules.JobDescription/
+│       │   ├── Domain/                    # JobDescription, JobDescriptionSource enum
+│       │   ├── Features/                  # SubmitJobDescription, ScrapeJobFromUrl
+│       │   └── Services/                  # PlaywrightJobScraper
+│       │
+│       ├── TailorCV.Modules.CVGeneration/
+│       │   ├── Domain/                    # GeneratedCv, GeneratedCvSection, GenerationStatus
+│       │   ├── Features/                  # GenerateCv, GetGeneratedCv, RegenerateSection
+│       │   ├── Services/                  # OpenAiCvGenerator, PromptBuilder
+│       │   └── BackgroundJobs/            # ProcessCvGenerationJob
+│       │
+│       ├── TailorCV.Modules.Templates/
+│       │   ├── Domain/                    # CvTemplate, TemplateCategory enum
+│       │   └── Features/                  # ListTemplates, GetTemplate, SuggestTemplates
+│       │
+│       └── TailorCV.Modules.Export/
+│           ├── Features/                  # ExportPdf, ExportDocx
+│           └── Services/                  # QuestPdfTemplateRenderer, DocxRenderer
+│
+├── client/                                # React frontend
+│   └── src/
+│       ├── api/                          # Axios client with interceptors
+│       ├── hooks/                        # TanStack Query hooks
+│       ├── stores/                       # Zustand stores (auth, cv-editor)
+│       ├── pages/                        # Route components
+│       ├── components/                   # UI components (ui/, cv/, job/, generation/)
+│       └── lib/                          # Utils, Zod validators
+│
+└── tests/                                # (infrastructure for tests)
 ```
+
+### Module Dependency Rules
+
+```
+CVBuilder.Api → All Modules + SharedKernel + Infrastructure
+Each Module → CVBuilder.SharedKernel (only)
+Infrastructure → CVBuilder.SharedKernel
+
+NO module references another module directly.
+Inter-module communication uses MediatR notifications through SharedKernel.
+```
+
+### Database Schema Strategy
+
+| Module | Schema | Purpose |
+|--------|--------|---------|
+| Identity | `identity` | Users, roles, permissions, refresh tokens |
+| CVProfile | `cv_profile` | CV profiles and sections |
+| JobDescription | `job` | Job descriptions with parsed keywords |
+| CVGeneration | `generation` | Generated CVs and sections |
+| Templates | `templates` | Template catalog |
 
 ## Getting Started
 
 ### Prerequisites
 
-- .NET 10 SDK
+- .NET 8.0 SDK
 - Docker & Docker Compose
-- PostgreSQL 17+ (or use Docker)
+- PostgreSQL 16+ (or use Docker)
+- Node.js 18+ (for React frontend)
 
 ### Configuration
 
-Update `appsettings.json` with your configuration:
+**Backend (`appsettings.json` or user secrets):**
 
 ```json
 {
   "ConnectionStrings": {
-    "Database": "Host=localhost;Database=clean-architecture;Username=postgres;Password=postgres"
+    "DefaultConnection": "Host=localhost;Database=cvbuilder;Username=cvbuilder;Password=..."
   },
   "Jwt": {
-    "Secret": "your-secret-key-minimum-32-characters-long-for-security",
-    "Issuer": "CleanArchitecture",
-    "Audience": "CleanArchitecture",
-    "ExpirationInMinutes": 60
+    "Issuer": "CVBuilder",
+    "Audience": "CVBuilder.Client",
+    "AccessTokenExpirationMinutes": 15,
+    "RefreshTokenExpirationDays": 7
+  },
+  "OpenAI": {
+    "ApiKey": "sk-...",
+    "Model": "gpt-4o",
+    "FallbackModel": "gpt-4o-mini"
+  },
+  "Ocr": {
+    "TessDataPath": "./tessdata"
   }
 }
+```
+
+**Frontend (`client/.env`):**
+
+```env
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
 
 ### Running with Docker
@@ -119,108 +185,147 @@ docker-compose up -d
 ```
 
 Services:
-- **Web.Api**: http://localhost:8080
-- **Swagger**: http://localhost:8080/swagger
-- **Health Check**: http://localhost:8080/health
+- **API**: http://localhost:5000
+- **Swagger**: http://localhost:5000/swagger
+- **Scalar**: http://localhost:5000/scalar
+- **Hangfire Dashboard**: http://localhost:5000/hangfire
 - **PostgreSQL**: localhost:5432
-- **Seq (Logs)**: http://localhost:8081
+- **Seq (Logs)**: http://localhost:5341
 
 ### Running Locally
 
+**Backend:**
 ```bash
+cd TailorCV
 dotnet restore
 dotnet build
-dotnet run --project src/Web.Api
+dotnet run --project src/TailorCV.Api
 ```
 
-The application will:
-1. Apply database migrations automatically
-2. Seed development data (in development mode)
+**Frontend:**
+```bash
+cd TailorCV/client
+npm install
+npm run dev
+```
+
+The backend will:
+1. Apply database migrations automatically on startup
+2. Seed development template data
+3. Run at http://localhost:5000
 
 ### Default Development Credentials
 
 After seeding:
-- **Email**: `admin@example.com`
+- **Email**: `admin@cvbuilder.local`
 - **Password**: `Admin123!`
-
-### Running Tests
-
-```bash
-# Run all tests
-dotnet test
-
-# Run unit tests only
-dotnet test tests/Application.UnitTests
-
-# Run architecture tests only
-dotnet test tests/ArchitectureTests
-```
 
 ## API Endpoints
 
-### Authentication
+### Authentication (`/api/auth`)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/users/register` | Register new user |
-| POST | `/users/login` | Login and get JWT token |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | Anonymous | Register new user |
+| POST | `/api/auth/login` | Anonymous | Login, get JWT + refresh token |
+| POST | `/api/auth/refresh` | Anonymous | Refresh access token |
+| POST | `/api/auth/logout` | Bearer | Revoke refresh tokens |
+| GET | `/api/auth/me` | Bearer | Get current user |
 
-### Users
+### CV Profile (`/api/cv-profiles`)
 
-| Method | Endpoint | Permission | Description |
-|--------|----------|------------|-------------|
-| GET | `/users/{id}` | `users:read` | Get user by ID |
-| POST | `/users/{id}/roles` | `users:assign` | Assign role to user |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/cv-profiles` | Bearer | Create CV profile |
+| GET | `/api/cv-profiles` | Bearer | Get profile with all sections |
+| PUT | `/api/cv-profiles/{id}` | Bearer | Update profile |
+| POST | `/api/cv-profiles/{id}/sections` | Bearer | Add section |
+| PUT | `/api/cv-profiles/{id}/sections/{sectionId}` | Bearer | Update section |
+| DELETE | `/api/cv-profiles/{id}/sections/{sectionId}` | Bearer | Soft-delete section |
+| POST | `/api/cv-profiles/{id}/import/text` | Bearer | Import from pasted text |
+| POST | `/api/cv-profiles/{id}/import/ocr` | Bearer | Import from file (OCR) |
 
-### Roles (Admin)
+### Job Description (`/api/job-descriptions`)
 
-| Method | Endpoint | Permission | Description |
-|--------|----------|------------|-------------|
-| POST | `/roles` | `roles:create` | Create new role |
-| GET | `/roles?page=1&pageSize=10` | `roles:read` | List roles (paginated) |
-| GET | `/roles/{id}` | `roles:read` | Get role by ID |
-| PUT | `/roles/{id}` | `roles:update` | Update role |
-| DELETE | `/roles/{id}` | `roles:delete` | Delete role |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/job-descriptions` | Bearer | Submit job description |
+| POST | `/api/job-descriptions/scrape` | Bearer | Scrape from URL (background) |
+| GET | `/api/job-descriptions` | Bearer | List (paginated) |
+| GET | `/api/job-descriptions/{id}` | Bearer | Get single |
+| DELETE | `/api/job-descriptions/{id}` | Bearer | Delete |
 
-## Permission Format
+### CV Generation (`/api/generation`)
 
-This project uses DAC (Discretionary Access Control) with `resource:action` permission format:
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/generation` | Bearer | Generate CV (background job) |
+| GET | `/api/generation/{id}` | Bearer | Get with status |
+| GET | `/api/generation` | Bearer | List (paginated) |
+| POST | `/api/generation/{id}/sections/{sectionId}/regenerate` | Bearer | Regenerate single section |
+| PUT | `/api/generation/{id}/sections/{sectionId}` | Bearer | Manual edit |
+| DELETE | `/api/generation/{id}` | Bearer | Delete |
 
-- `admin:full` - Full administrative access
-- `roles:create` - Can create roles
-- `roles:read` - Can view roles
-- `roles:update` - Can modify roles
-- `roles:delete` - Can delete roles
-- `users:read` - Can view users
-- `users:write` - Can create/update users
-- `users:assign` - Can assign roles to users
+### Templates (`/api/templates`)
 
-## Authorization Flow
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/templates` | Bearer | List (filterable) |
+| GET | `/api/templates/{id}` | Bearer | Get details |
+| GET | `/api/templates/suggest?jobDescriptionId={id}` | Bearer | Get suggestions |
 
-1. User registers or logs in
-2. User is assigned roles (by admin)
-3. Roles have permissions (e.g., `roles:create`, `users:read`)
-4. Endpoints require specific permissions via `[Authorize(Policy = "permission:name")]`
-5. `PermissionAuthorizationHandler` checks if user has required permission
+### Export (`/api/export`)
 
-## Database Migrations
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/export/{generatedCvId}/pdf?templateId={id}` | Bearer | Export as PDF |
+| GET | `/api/export/{generatedCvId}/docx?templateId={id}` | Bearer | Export as DOCX |
 
-```bash
-# Add migration
-dotnet ef migrations add InitialCreate --project src/Infrastructure --startup-project src/Web.Api
+## AI Integration
 
-# Apply migrations
-dotnet ef database update --project src/Infrastructure --startup-project src/Web.Api
+### Model Usage
+
+| Use Case | Model | Justification |
+|----------|-------|---------------|
+| Full CV regeneration | GPT-4o | Best quality for nuanced writing |
+| Section regeneration | GPT-4o | Same quality, smaller scope |
+| Text/OCR parsing | GPT-4o-mini | Cheaper, simpler extraction |
+| Keyword extraction | GPT-4o-mini | Classification task |
+
+### Generation Flow
+
+1. User submits `POST /api/generation` with cvProfileId, jobDescriptionId, templateId
+2. Backend creates `GeneratedCv` with `Status = Pending`
+3. Hangfire background job processes:
+   - Load CV profile + job description
+   - Extract keywords (GPT-4o-mini)
+   - Generate sections in parallel (GPT-4o)
+   - Persist results, set `Status = Completed`
+4. Frontend polls `GET /api/generation/{id}` until status = Completed
+
+### Cost Estimation
+
+| Operation | Model | Approximate Cost |
+|-----------|-------|------------------|
+| Full CV (5 sections) | GPT-4o | ~$0.10 |
+| Single section regenerate | GPT-4o | ~$0.02 |
+| Keyword extraction | GPT-4o-mini | ~$0.001 |
+| Text parsing (OCR/paste) | GPT-4o-mini | ~$0.002 |
+
+## Section Types
+
+CV sections are stored as typed JSON in `jsonb` columns:
+
+```json
+// Experience
+{ "entries": [{ "jobTitle": "...", "company": "...", "startDate": "2021-03", "bullets": [...] }] }
+
+// Education
+{ "entries": [{ "degree": "...", "institution": "...", "startDate": "2014-09", "endDate": "2018-06" }] }
+
+// Skills
+{ "categories": [{ "name": "Programming Languages", "skills": ["C#", "TypeScript"] }] }
 ```
-
-## Template Usage for New Projects
-
-1. Clone this template
-2. Replace `CleanArchitecture` with your project name in solution file
-3. Update JWT secret and database connection in `appsettings.json`
-4. Delete sample entities (User, Role, Permission) and add your own domain
-5. Run `dotnet ef migrations add InitialCreate` to generate initial migration
-6. Start building your features!
 
 ## License
 
