@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="TailorCV/src/TailorCV.Api/TailorCV.Api.csproj" />
+    <Project Path="TailorCV/src/TailorCV.SharedKernel/TailorCV.SharedKernel.csproj" />
+    <Project Path="TailorCV/src/TailorCV.Infrastructure/TailorCV.Infrastructure.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.Identity/TailorCV.Modules.Identity.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.CVProfile/TailorCV.Modules.CVProfile.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.JobDescription/TailorCV.Modules.JobDescription.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.CVGeneration/TailorCV.Modules.CVGeneration.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.Templates/TailorCV.Modules.Templates.csproj" />
+    <Project Path="TailorCV/src/Modules/TailorCV.Modules.Export/TailorCV.Modules.Export.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="TailorCV/tests/TailorCV.Architecture.Tests/TailorCV.Architecture.Tests.csproj" />
+    <Project Path="TailorCV/tests/TailorCV.Integration.Tests/TailorCV.Integration.Tests.csproj" />
+    <Project Path="TailorCV/tests/TailorCV.Modules.Identity.Tests/TailorCV.Modules.Identity.Tests.csproj" />
+    <Project Path="TailorCV/tests/TailorCV.Modules.CVProfile.Tests/TailorCV.Modules.CVProfile.Tests.csproj" />
+    <Project Path="TailorCV/tests/TailorCV.Modules.CVGeneration.Tests/TailorCV.Modules.CVGeneration.Tests.csproj" />
+    <Project Path="TailorCV/tests/TailorCV.E2E.Tests/TailorCV.E2E.Tests.csproj" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>
