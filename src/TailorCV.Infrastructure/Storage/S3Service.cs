@@ -1,0 +1,1 @@
+namespace TailorCV.Infrastructure.Storage;

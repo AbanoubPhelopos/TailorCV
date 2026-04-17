@@ -36,16 +36,7 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "UNAUTHORIZED",
-  "message": "Invalid email or password"
-}
-```
-
-**404 Not Found**
-
-```json
-{
-  "code": "NOT_FOUND",
+  "code": "INVALID_CREDENTIALS",
   "message": "Invalid email or password"
 }
 ```
@@ -62,7 +53,7 @@ Content-Type: application/json
 ## Business Rules
 
 - Email lookup is case-insensitive
-- Password verified via BCrypt verify
+- Password verified via PBKDF2 (PasswordHasher.Verify)
 - On successful login, a **new** `RefreshToken` is created (old ones remain valid until expired — no revocation in Phase 1)
 - Access token expiry: 15 minutes
 - Refresh token expiry: 7 days
@@ -75,7 +66,7 @@ Content-Type: application/json
 3. **Handler** executes:
    - Look up user by email (case-insensitive)
    - If not found → return same error as wrong password (no email enumeration)
-   - Verify password with BCrypt
+   - Verify password with PasswordHasher.Verify
    - If invalid → return unauthorized error
    - Create new `RefreshToken` entity (userId, token=GUID, expiresAt=now+7days)
    - Save refresh token to `identity.refresh_tokens`
@@ -117,7 +108,7 @@ sequenceDiagram
         V-->>API: Result.Failure
         API-->>C: 401 Unauthorized
     end
-    H->>H: BCrypt.Verify(password, hash)
+    H->>H: PasswordHasher.Verify(password, hash)
     alt Password Invalid
         H-->>L: Result.Failure(UnauthorizedError)
         L-->>V: Result.Failure
@@ -143,7 +134,7 @@ flowchart TD
     B -->|Invalid| C[Return 400 Validation Error]
     B -->|Valid| D{User found by email?}
     D -->|No| E[Return 401 Unauthorized]
-    D -->|Yes| F{BCrypt password verify?}
+    D -->|Yes| F{PasswordHasher verify?}
     F -->|Invalid| E
     F -->|Valid| G[Create new RefreshToken]
     G --> H[Save to DB]
@@ -156,7 +147,7 @@ flowchart TD
 | Code | HTTP Status | When |
 |------|-------------|------|
 | `VALIDATION` | 400 | Missing/invalid email or password format |
-| `UNAUTHORIZED` | 401 | Wrong email or wrong password |
+| `INVALID_CREDENTIALS` | 401 | Wrong email or wrong password |
 
 ## Security Considerations
 

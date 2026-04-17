@@ -86,230 +86,140 @@
 
 ```
 TailorCV/
-├── Directory.Build.props                        # Central build properties
-├── Directory.Packages.props                     # Central package management
+├── .editorconfig                                 # var banned, braces required, SonarAnalyzer
+├── Directory.Packages.props                      # Central package management (CPM)
+├── TailorCV.slnx                                 # Solution file
 ├── src/
+│   ├── Directory.Build.props                     # net10.0, SonarAnalyzer, nullable, treat warnings as errors
+│   │
 │   ├── TailorCV.Api/                            # Host / entry point
-│   │   ├── Program.cs                           # App bootstrap, module registration
-│   │   ├── Middleware/                          # Global error, correlation ID, auth
-│   │   │   ├── CorrelationIdMiddleware.cs
-│   │   │   ├── ExceptionHandlingMiddleware.cs
-│   │   │   └── RateLimitingMiddleware.cs
-│   │   └── Extensions/
-│   │       ├── ServiceCollectionExtensions.cs
-│   │       └── ApplicationBuilderExtensions.cs
+│   │   ├── Program.cs                           # App bootstrap, module registration, OpenAPI/Scalar
+│   │   ├── appsettings.json                     # Connection strings, JWT, Redis, RustFS, Serilog config
+│   │   ├── Middleware/
+│   │   │   └── ExceptionMiddleware.cs           # Unhandled exceptions → JSON error response
+│   │   ├── OpenApi/
+│   │   │   └── BearerSecuritySchemeTransformer.cs  # JWT Bearer OpenAPI security scheme
+│   │   ├── Services/
+│   │   │   ├── CurrentUserService.cs            # ICurrentUserService impl (claims extraction)
+│   │   │   └── DateTimeProvider.cs              # IDateTimeProvider impl (TimeProvider.System)
+│   │   └── Properties/
+│   │       └── launchSettings.json              # Dev ports, environment
 │   │
 │   ├── TailorCV.Shared/                         # Shared kernel (no module dependencies)
 │   │   ├── CQRS/
 │   │   │   ├── ICommandHandler.cs               # ICommandHandler<TCommand, TResult>
 │   │   │   ├── IQueryHandler.cs                 # IQueryHandler<TQuery, TResult>
-│   │   │   ├── ValidationDecorator.cs           # FluentValidation decorator
-│   │   │   └── LoggingDecorator.cs              # Serilog logging decorator
+│   │   │   ├── ValidationDecorator.cs           # CommandValidationDecorator + QueryValidationDecorator
+│   │   │   └── LoggingDecorator.cs              # CommandLoggingDecorator + QueryLoggingDecorator
 │   │   ├── Results/
-│   │   │   ├── Result.cs                        # Result<T> type
-│   │   │   └── Error.cs                         # Error base type
+│   │   │   ├── Result.cs                        # Result + Result<T>
+│   │   │   ├── Error.cs                         # Error record + ErrorType enum + ToHttpStatusCode()
+│   │   │   └── ResultExtensions.cs              # ToProblemDetails() → IResult
 │   │   ├── Pagination/
-│   │   │   └── OffsetPagedList.cs                # Standard offset pagination wrapper
+│   │   │   └── OffsetPagedList.cs               # OffsetPagedList<T> + PagingInfo
 │   │   ├── Events/
-│   │   │   └── IntegrationEvent.cs              # Base integration event
+│   │   │   └── IntegrationEvent.cs              # IIntegrationEvent marker interface
 │   │   ├── Interfaces/
-│   │   │   ├── ICurrentUserService.cs
-│   │   │   └── IDateTimeProvider.cs
+│   │   │   ├── ICurrentUserService.cs           # UserId, Email, Role, IsAuthenticated
+│   │   │   └── IDateTimeProvider.cs             # DateTimeOffset UtcNow
 │   │   └── Primitives/
-│   │       ├── Entity.cs                        # Base entity
-│   │       ├── ValueObject.cs                   # Base value object
-│   │       └── StronglyTypedId.cs               # Typed ID base
+│   │       └── Entity.cs                        # Base entity (Guid.CreateVersion7())
 │   │
-│   ├── TailorCV.Infrastructure/                 # Shared infrastructure
-│   │   ├── Persistence/
-│   │   │   └── MigrationExtensions.cs
-│   │   ├── Storage/
-│   │   │   ├── S3Service.cs                      # RustFS (S3) presigned URLs, upload, download, delete
-│   │   │   └── S3Configuration.cs
-│   │   ├── OpenTelemetry/
-│   │   │   └── TracingConfiguration.cs
-│   │   ├── Caching/
-│   │   │   ├── RedisConfiguration.cs
-│   │   │   └── CacheService.cs
-│   │   ├── Logging/
-│   │   │   └── SerilogConfiguration.cs
-│   │   └── Resilience/
-│   │       └── PollyConfiguration.cs
+│   ├── TailorCV.Infrastructure/                 # Shared infrastructure (all stubs)
+│   │   ├── Persistence/MigrationExtensions.cs
+│   │   ├── Storage/S3Service.cs + S3Configuration.cs
+│   │   ├── OpenTelemetry/TracingConfiguration.cs
+│   │   ├── Caching/RedisConfiguration.cs + CacheService.cs
+│   │   ├── Logging/SerilogConfiguration.cs
+│   │   └── Resilience/PollyConfiguration.cs
+│   │
+│   ├── protos/                                  # gRPC contracts (all empty placeholders)
+│   │   ├── identity.proto
+│   │   ├── profile.proto
+│   │   ├── jobscraper.proto
+│   │   ├── templates.proto
+│   │   └── cvgenerator.proto
 │   │
 │   └── Modules/
 │       ├── Identity/
-│       │   ├── TailorCV.Identity/
+│       │   ├── TailorCV.Identity/               # FULLY IMPLEMENTED
 │       │   │   ├── Features/
 │       │   │   │   ├── Register.cs
 │       │   │   │   ├── Login.cs
 │       │   │   │   ├── RefreshToken.cs
 │       │   │   │   └── Logout.cs
 │       │   │   ├── Domain/
-│       │   │   │   ├── User.cs
-│       │   │   │   ├── RefreshToken.cs
-│       │   │   │   └── Enums/
-│       │   │   │       └── UserRole.cs
+│       │   │   │   ├── User.cs                  # Rich entity, static Create() factory
+│       │   │   │   ├── RefreshToken.cs          # Entity, Create(userId, now), IsExpired(now)
+│       │   │   │   ├── IdentityErrors.cs        # Centralized business error codes
+│       │   │   │   └── Enums/UserRole.cs
 │       │   │   ├── Infrastructure/
-│       │   │   │   ├── IdentityDbContext.cs
+│       │   │   │   ├── IdentityDbContext.cs     # schema: "identity"
+│       │   │   │   ├── IdentityDbContextFactory.cs  # Design-time factory for dotnet ef
+│       │   │   │   ├── PasswordHasher.cs        # PBKDF2 (Rfc2898DeriveBytes), built-in .NET
+│       │   │   │   ├── JwtService.cs            # IJwtService + JwtSettings + JwtService
 │       │   │   │   ├── Configurations/
 │       │   │   │   │   ├── UserConfiguration.cs
 │       │   │   │   │   └── RefreshTokenConfiguration.cs
-│       │   │   │   └── JwtService.cs
-│       │   │   └── ModuleExtensions.cs
-│       │   └── TailorCV.Identity.Contracts/        # Events + DTOs published by Identity
-│       │       └── Events/                          # (currently none — no events published)
+│       │   │   │   └── Migrations/              # EF Core generated (InitialCreate)
+│       │   │   └── ModuleExtensions.cs          # AddIdentityModule(), TryDecorate(), MigrateIdentityModuleAsync()
+│       │   └── TailorCV.Identity.Contracts/
+│       │       └── Events/.gitkeep              # (no events published)
 │       │
 │       ├── Profile/
-│       │   ├── TailorCV.Profile/
-│       │   │   ├── Features/
-│       │   │   │   ├── CreateProfile.cs
-│       │   │   │   ├── UpdateProfile.cs
-│       │   │   │   ├── GetProfile.cs
-│       │   │   │   ├── AddSection.cs              # Unified add for all section types
-│       │   │   │   ├── UpdateSection.cs           # Unified update for all section types
-│       │   │   │   ├── RemoveSection.cs           # Unified remove for all section types
-│       │   │   │   ├── ReorderSections.cs
-│       │   │   │   ├── ImportResumeGetUploadUrl.cs
-│       │   │   │   ├── ImportResumeParse.cs
-│       │   │   │   ├── ImportResumeParseStatus.cs
-│       │   │   │   ├── ImportResumeConfirm.cs
-│       │   │   │   ├── ExportProfile.cs
-│       │   │   │   ├── GetCompleteness.cs
-│       │   │   │   ├── ShareProfile.cs
-│       │   │   │   └── GetSharedProfile.cs
-│       │   │   ├── Domain/
-│       │   │   │   ├── Profile.cs
-│       │   │   │   ├── Experience.cs
-│       │   │   │   ├── Project.cs
-│       │   │   │   ├── Skill.cs
-│       │   │   │   ├── Education.cs
-│       │   │   │   ├── Certification.cs
-│       │   │   │   ├── Language.cs
-│       │   │   │   ├── CustomSection.cs
-│       │   │   │   ├── SectionOrder.cs
-│       │   │   │   ├── ParseJob.cs
-│       │   │   │   └── Enums/
-│       │   │   │       ├── SectionType.cs
-│       │   │   │       ├── ParseJobStatus.cs
-│       │   │   │       └── LanguageProficiency.cs
+│       │   ├── TailorCV.Profile/                # STUBS (domain scaffolded, features empty)
+│       │   │   ├── Features/                    # 15 empty namespace stubs
+│       │   │   ├── Domain/                      # Profile, Experience, Project, Skill, Education, etc.
 │       │   │   ├── Infrastructure/
-│       │   │   │   ├── ProfileDbContext.cs
-│       │   │   │   ├── Configurations/
-│       │   │   │   └── AI/
-│       │   │   │       └── ResumeParserService.cs
-│       │   │   └── ModuleExtensions.cs
-│       │   └── TailorCV.Profile.Contracts/         # Events + DTOs published by Profile
-│       │       └── Events/
-│       │           └── ProfileUpdatedEvent.cs       # Published when profile is created/updated
+│       │   │   │   ├── ProfileDbContext.cs      # Empty stub
+│       │   │   │   ├── AI/ResumeParserService.cs
+│       │   │   │   └── Configurations/          # Empty directory
+│       │   │   └── ModuleExtensions.cs          # Empty stub
+│       │   └── TailorCV.Profile.Contracts/
+│       │       └── Events/ProfileUpdatedEvent.cs  # Empty stub
 │       │
 │       ├── JobScraper/
-│       │   ├── TailorCV.JobScraper/
-│       │   │   ├── Features/
-│       │   │   │   ├── ParseJobDescription.cs
-│       │   │   │   ├── ScrapeJobUrl.cs
-│       │   │   │   ├── SaveJobDescription.cs
-│       │   │   │   ├── ListJobs.cs
-│       │   │   │   └── GetJob.cs
+│       │   ├── TailorCV.JobScraper/             # STUBS (domain scaffolded, features empty)
+│       │   │   ├── Features/                    # 5 empty namespace stubs
 │       │   │   ├── Domain/
-│       │   │   │   ├── JobDescription.cs
-│       │   │   │   ├── ParseJob.cs
-│       │   │   │   └── Enums/
-│       │   │   │       ├── SeniorityLevel.cs
-│       │   │   │       └── ParseJobStatus.cs
 │       │   │   ├── Infrastructure/
-│       │   │   │   ├── JobScraperDbContext.cs
-│       │   │   │   ├── Configurations/
-│       │   │   │   ├── Scraping/
-│       │   │   │   │   └── PlaywrightScrapingService.cs
-│       │   │   │   └── AI/
-│       │   │   │       └── JobDescriptionParserService.cs
-│       │   │   └── ModuleExtensions.cs
-│       │   └── TailorCV.JobScraper.Contracts/      # Events + DTOs published by JobScraper
-│       │       └── Events/
-│       │           └── JobDescriptionSavedEvent.cs  # Published when a JD is saved/parsed
+│       │   │   │   ├── JobScraperDbContext.cs   # Empty stub
+│       │   │   │   ├── Scraping/PlaywrightScrapingService.cs
+│       │   │   │   ├── AI/JobDescriptionParserService.cs
+│       │   │   │   └── Configurations/          # Empty directory
+│       │   │   └── ModuleExtensions.cs          # Empty stub
+│       │   └── TailorCV.JobScraper.Contracts/
+│       │       └── Events/JobDescriptionSavedEvent.cs  # Empty stub
 │       │
 │       ├── Templates/
-│       │   ├── TailorCV.Templates/
-│       │   │   ├── Features/
-│       │   │   │   ├── BrowseTemplates.cs
-│       │   │   │   ├── GetTemplate.cs
-│       │   │   │   ├── PreviewTemplate.cs
-│       │   │   │   ├── CreateTemplate.cs        # Admin
-│       │   │   │   ├── UpdateTemplate.cs        # Admin
-│       │   │   │   └── DisableTemplate.cs       # Admin
-│       │   │   ├── Domain/
-│       │   │   │   ├── Template.cs
-│       │   │   │   └── Enums/
-│       │   │   │       ├── TemplateCategory.cs
-│       │   │   │       └── TemplateStyle.cs
-│       │   │   ├── Infrastructure/
-│       │   │   │   ├── TemplatesDbContext.cs
-│       │   │   │   ├── Configurations/
-│       │   │   │   └── Seeding/
-│       │   │   │       └── TemplateSeeder.cs
-│       │   │   └── ModuleExtensions.cs
-│       │   └── TailorCV.Templates.Contracts/       # Events + DTOs published by Templates
-│       │       └── Events/                          # (currently none — templates don't publish events)
+│       │   └── TailorCV.Templates/              # DIRECTORY ONLY (no .cs source files)
 │       │
 │       └── CVGenerator/
-│           ├── TailorCV.CVGenerator/
-│           │   ├── Features/
-│           │   │   ├── GenerateCV.cs
-│           │   │   ├── GenerateCoverLetter.cs
-│           │   │   ├── GetMatchScore.cs
-│           │   │   ├── PreviewCV.cs
-│           │   │   ├── ExportPdf.cs
-│           │   │   ├── RegenerateCV.cs
-│           │   │   ├── ListHistory.cs
-│           │   │   └── GetGeneratedCV.cs
-│           │   ├── Domain/
-│           │   │   ├── GeneratedCV.cs
-│           │   │   ├── CoverLetter.cs
-│           │   │   ├── MatchScore.cs
-│           │   │   └── CVContent.cs
-│           │   ├── Infrastructure/
-│           │   │   ├── CVGeneratorDbContext.cs
-│           │   │   ├── Configurations/
-│           │   │   ├── AI/
-│           │   │   │   ├── CVTailoringService.cs
-│           │   │   │   └── CoverLetterService.cs
-│           │   │   └── Export/
-│           │   │       └── PuppeteerPdfService.cs
-│           │   ├── Events/
-│           │   │   └── CVGeneratedEventHandler.cs  # Wolverine event handlers
-│           │   ├── Sagas/
-│           │   │   └── CVGenerationSaga.cs         # Wolverine saga
-│           │   └── ModuleExtensions.cs
-│           └── TailorCV.CVGenerator.Contracts/     # Events + DTOs published by CVGenerator
-│               └── Events/
-│                   └── CVGeneratedEvent.cs          # Published when a CV is generated
+│           └── TailorCV.CVGenerator/            # DIRECTORY ONLY (no .cs source files)
 │
-├── proto/                                       # gRPC contracts
-│   ├── identity.proto
-│   ├── profile.proto
-│   ├── jobscraper.proto
-│   ├── templates.proto
-│   └── cvgenerator.proto
+├── infra/
+│   ├── Dockerfile
+│   ├── docker-compose.yml                       # PostgreSQL, RabbitMQ, Redis, RustFS, OTel, Prometheus, Loki, Tempo, Grafana
+│   ├── otel-collector/config.yaml
+│   ├── prometheus/prometheus.yml
+│   ├── loki/config.yaml
+│   ├── tempo/config.yaml
+│   └── grafana/provisioning/datasources/datasources.yaml
 │
-├── tests/
-│   ├── Unit/
-│   │   ├── TailorCV.Identity.Tests/
-│   │   ├── TailorCV.Profile.Tests/
-│   │   ├── TailorCV.JobScraper.Tests/
-│   │   ├── TailorCV.Templates.Tests/
-│   │   └── TailorCV.CVGenerator.Tests/
-│   └── Integration/
-│       └── TailorCV.Integration.Tests/
+├── docs/                                        # Architecture + feature documentation
+│   ├── architecture/
+│   │   ├── overview.md                          # This file
+│   │   └── project-dependencies.md
+│   └── features/
+│       ├── overview.md
+│       ├── full.md
+│       ├── identity/ (register, login, refresh-token, logout)
+│       ├── profile/ (10 feature docs)
+│       └── jobscraper/ (5 feature docs)
 │
-├── frontend/                                    # Next.js (App Router, TypeScript)
-│
-└── docs/
-    ├── features/
-    │   ├── overview.md
-    │   └── full.md
-     └── architecture/
-         └── overview.md                          # This file
- ```
+├── tests/                                       # NOT YET CREATED
+└── frontend/                                    # NOT YET CREATED
+```
 
 ---
 
@@ -508,99 +418,22 @@ public static class Register
 ### Query Feature Example
 
 ```csharp
-using Microsoft.EntityFrameworkCore;
-using TailorCV.Profile.Infrastructure;
-using TailorCV.Shared.Results;
+// See docs/features/profile/get-profile.md for the actual response shape.
+// GetProfile uses a unified section model with sectionType discriminator
+// and SectionOrder for ordering, not per-type navigation properties.
+// The example below is a simplified illustration.
 
-namespace TailorCV.Profile.Features;
-
-public static class GetProfile
-{
-    public static void MapEndpoint(IEndpointRouteBuilder app)
-    {
-        app.MapGet("/api/profiles/me", async (
-                IQueryHandler<Request, ProfileResponse> handler,
-                CancellationToken ct) =>
-            {
-                Result<ProfileResponse> result = await handler.HandleAsync(new Request(), ct);
-
-                return result.IsSuccess
-                    ? Results.Ok(result.Value)
-                    : Results.NotFound(result.Error);
-            })
-            .WithName("GetProfile")
-            .WithTags("Profile")
-            .RequireAuthorization();
-    }
-
-    public record Request;
-
-    public record ProfileResponse(
-        Guid Id,
-        string Headline,
-        string Summary,
-        string Phone,
-        string Location,
-        List<ExperienceResponse> Experiences,
-        List<ProjectResponse> Projects,
-        List<SkillResponse> Skills,
-        List<EducationResponse> Education,
-        List<CertificationResponse> Certifications,
-        List<LanguageResponse> Languages);
-
-    public record ExperienceResponse(Guid Id, string Company, string Role, DateTime StartDate, DateTime? EndDate, string Description, bool IsCurrent);
-    public record ProjectResponse(Guid Id, string Name, string Description, List<string> TechStack, string? Url);
-    public record SkillResponse(Guid Id, string Category, List<string> Items);
-    public record EducationResponse(Guid Id, string Institution, string Degree, string Field, DateTime StartDate, DateTime? EndDate);
-    public record CertificationResponse(Guid Id, string Name, string Issuer, DateTime Date);
-    public record LanguageResponse(Guid Id, string Language, string Proficiency);
-
-    public class Handler : IQueryHandler<Request, ProfileResponse>
-    {
-        private readonly ProfileDbContext _dbContext;
-        private readonly ICurrentUserService _currentUser;
-
-        public Handler(ProfileDbContext dbContext, ICurrentUserService currentUser)
-        {
-            _dbContext = dbContext;
-            _currentUser = currentUser;
-        }
-
-        public async Task<Result<ProfileResponse>> HandleAsync(Request request, CancellationToken ct)
-        {
-            var profile = await _dbContext.Profiles
-                .Include(p => p.Experiences)
-                .Include(p => p.Projects)
-                .Include(p => p.Skills)
-                .Include(p => p.Education)
-                .Include(p => p.Certifications)
-                .Include(p => p.Languages)
-                .FirstOrDefaultAsync(p => p.UserId == _currentUser.UserId, ct);
-
-            if (profile is null)
-                return Result.Failure<ProfileResponse>(Error.NotFound("Profile not found"));
-
-            return new ProfileResponse(
-                profile.Id,
-                profile.Headline,
-                profile.Summary,
-                profile.Phone,
-                profile.Location,
-                profile.Experiences.Select(e => new ExperienceResponse(
-                    e.Id, e.Company, e.Role, e.StartDate, e.EndDate, e.Description, e.IsCurrent)).ToList(),
-                profile.Projects.Select(p => new ProjectResponse(
-                    p.Id, p.Name, p.Description, p.TechStack, p.Url)).ToList(),
-                profile.Skills.Select(s => new SkillResponse(
-                    s.Id, s.Category, s.Items)).ToList(),
-                profile.Education.Select(e => new EducationResponse(
-                    e.Id, e.Institution, e.Degree, e.Field, e.StartDate, e.EndDate)).ToList(),
-                profile.Certifications.Select(c => new CertificationResponse(
-                    c.Id, c.Name, c.Issuer, c.Date)).ToList(),
-                profile.Languages.Select(l => new LanguageResponse(
-                    l.Id, l.Language, l.Proficiency.ToString())).ToList());
-        }
-    }
-}
+// Actual response shape (from feature docs):
+// {
+//   "id": "guid",
+//   "headline": "...",
+//   "summary": "...",
+//   "sections": [
+//     { "id": "guid", "sectionType": "Experience", "order": 1, "data": { ... } },
+//     { "id": "guid", "sectionType": "Project", "order": 2, "data": { ... } },
+//     ...
+//   ]
+// }
 ```
 
 ---
@@ -669,14 +502,28 @@ public class Result<T> : Result
 // TailorCV.Shared/Results/Error.cs
 namespace TailorCV.Shared.Results;
 
-public record Error(string Code, string Message)
+public enum ErrorType
 {
-    public static Error None => new(string.Empty, string.Empty);
-    public static Error NotFound(string message) => new("NOT_FOUND", message);
-    public static Error Conflict(string message) => new("CONFLICT", message);
-    public static Error Validation(string message) => new("VALIDATION", message);
-    public static Error Unauthorized(string message) => new("UNAUTHORIZED", message);
+    None,
+    Validation,
+    Unauthorized,
+    Forbidden,
+    NotFound,
+    Conflict
 }
+
+public record Error(string Code, string Message, ErrorType Type)
+{
+    public static Error None => new(string.Empty, string.Empty, ErrorType.None);
+    public static Error Validation(string message) => new("VALIDATION", message, ErrorType.Validation);
+    public static Error NotFound(string code, string message) => new(code, message, ErrorType.NotFound);
+    public static Error Conflict(string code, string message) => new(code, message, ErrorType.Conflict);
+    public static Error Unauthorized(string code, string message) => new(code, message, ErrorType.Unauthorized);
+    public static Error Forbidden(string code, string message) => new(code, message, ErrorType.Forbidden);
+}
+
+// ErrorType maps to HTTP status codes via ToHttpStatusCode():
+// None → 200, Validation → 400, Unauthorized → 401, Forbidden → 403, NotFound → 404, Conflict → 409
 ```
 
 ### Standard Pagination
@@ -741,12 +588,12 @@ public class OffsetPagedList<T>
 // TailorCV.Shared/CQRS/ValidationDecorator.cs
 namespace TailorCV.Shared.CQRS;
 
-public class ValidationDecorator<TCommand, TResult> : ICommandHandler<TCommand, TResult>
+public class CommandValidationDecorator<TCommand, TResult> : ICommandHandler<TCommand, TResult>
 {
     private readonly ICommandHandler<TCommand, TResult> _inner;
     private readonly IEnumerable<IValidator<TCommand>> _validators;
 
-    public ValidationDecorator(
+    public CommandValidationDecorator(
         ICommandHandler<TCommand, TResult> inner,
         IEnumerable<IValidator<TCommand>> validators)
     {
@@ -771,21 +618,21 @@ public class ValidationDecorator<TCommand, TResult> : ICommandHandler<TCommand, 
     }
 }
 
-// Same pattern for IQueryHandler<TQuery, TResult>
+// Separate QueryValidationDecorator<TQuery, TResult> for query handlers (same pattern)
 ```
 
 ```csharp
 // TailorCV.Shared/CQRS/LoggingDecorator.cs
 namespace TailorCV.Shared.CQRS;
 
-public class LoggingDecorator<TCommand, TResult> : ICommandHandler<TCommand, TResult>
+public class CommandLoggingDecorator<TCommand, TResult> : ICommandHandler<TCommand, TResult>
 {
     private readonly ICommandHandler<TCommand, TResult> _inner;
-    private readonly ILogger<LoggingDecorator<TCommand, TResult>> _logger;
+    private readonly ILogger<CommandLoggingDecorator<TCommand, TResult>> _logger;
 
-    public LoggingDecorator(
+    public CommandLoggingDecorator(
         ICommandHandler<TCommand, TResult> inner,
-        ILogger<LoggingDecorator<TCommand, TResult>> logger)
+        ILogger<CommandLoggingDecorator<TCommand, TResult>> logger)
     {
         _inner = inner;
         _logger = logger;
@@ -808,6 +655,8 @@ public class LoggingDecorator<TCommand, TResult> : ICommandHandler<TCommand, TRe
         }
     }
 }
+
+// Separate QueryLoggingDecorator<TQuery, TResult> for query handlers (same pattern)
 ```
 
 ### Registration Pattern (per module)
@@ -822,22 +671,50 @@ public static class ModuleExtensions
     {
         services.AddDbContext<IdentityDbContext>(options =>
             options.UseNpgsql(config.GetConnectionString("DefaultConnection"),
-                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "identity"))
+            .UseSnakeCaseNamingConvention());
 
         services.Scan(scan => scan
-            .FromAssemblyOf<ModuleExtensions>()
+            .FromAssemblyOf<IdentityDbContext>()
             .AddClasses(classes => classes.AssignableToAny(
                 typeof(ICommandHandler<,>),
                 typeof(IQueryHandler<,>)))
             .AsImplementedInterfaces()
             .WithScopedLifetime());
 
-        services.Decorate(typeof(ICommandHandler<,>), typeof(ValidationDecorator<,>));
-        services.Decorate(typeof(ICommandHandler<,>), typeof(LoggingDecorator<,>));
-        services.Decorate(typeof(IQueryHandler<,>), typeof(ValidationDecorator<,>));
-        services.Decorate(typeof(IQueryHandler<,>), typeof(LoggingDecorator<,>));
+        services.Scan(scan => scan
+            .FromAssemblyOf<IdentityDbContext>()
+            .AddClasses(classes => classes.AssignableTo(typeof(IValidator<>)))
+            .AsImplementedInterfaces()
+            .WithScopedLifetime());
+
+        TryDecorate(services, typeof(ICommandHandler<,>), typeof(CommandValidationDecorator<,>));
+        TryDecorate(services, typeof(ICommandHandler<,>), typeof(CommandLoggingDecorator<,>));
+        TryDecorate(services, typeof(IQueryHandler<,>), typeof(QueryValidationDecorator<,>));
+        TryDecorate(services, typeof(IQueryHandler<,>), typeof(QueryLoggingDecorator<,>));
+
+        services.Configure<JwtSettings>(config.GetSection("JwtSettings"));
+        services.AddSingleton<IJwtService, JwtService>();
 
         return services;
+    }
+
+    private static void TryDecorate(IServiceCollection services, Type serviceType, Type decoratorType)
+    {
+        bool hasRegistration = services.Any(s => s.ServiceType.IsGenericType
+            && s.ServiceType.GetGenericTypeDefinition() == serviceType);
+        if (hasRegistration)
+        {
+            services.Decorate(serviceType, decoratorType);
+        }
+    }
+
+    public static async Task MigrateIdentityModuleAsync(this WebApplication app)
+    {
+        if (!app.Environment.IsDevelopment()) return;
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        await dbContext.Database.MigrateAsync();
     }
 
     public static IEndpointRouteBuilder MapIdentityEndpoints(this IEndpointRouteBuilder app)
@@ -874,7 +751,7 @@ public static class ModuleExtensions
 **Infrastructure:**
 - `IdentityDbContext` (schema: `identity`)
 - `JwtService` — token generation/validation
-- Password hashing via BCrypt/Argon2
+- PasswordHasher — PBKDF2 (Rfc2898DeriveBytes.Pbkdf2, HMAC-SHA256, 100k iterations, 128-bit salt, 256-bit hash)
 
 **gRPC Service:** `identity.proto`
 - `GetUserById(UserIdRequest) → UserResponse`
@@ -889,28 +766,18 @@ public static class ModuleExtensions
 | CreateProfile | Command | `POST /api/profiles` | Create user profile |
 | UpdateProfile | Command | `PUT /api/profiles/me` | Update profile fields |
 | GetProfile | Query | `GET /api/profiles/me` | Get user's full profile |
-| AddExperience | Command | `POST /api/profiles/me/experiences` | Add experience section |
-| UpdateExperience | Command | `PUT /api/profiles/me/experiences/{id}` | Update experience |
-| RemoveExperience | Command | `DELETE /api/profiles/me/experiences/{id}` | Remove experience |
-| AddProject | Command | `POST /api/profiles/me/projects` | Add project |
-| UpdateProject | Command | `PUT /api/profiles/me/projects/{id}` | Update project |
-| RemoveProject | Command | `DELETE /api/profiles/me/projects/{id}` | Remove project |
-| AddSkill | Command | `POST /api/profiles/me/skills` | Add skill category |
-| UpdateSkill | Command | `PUT /api/profiles/me/skills/{id}` | Update skill |
-| RemoveSkill | Command | `DELETE /api/profiles/me/skills/{id}` | Remove skill |
-| AddEducation | Command | `POST /api/profiles/me/education` | Add education |
-| UpdateEducation | Command | `PUT /api/profiles/me/education/{id}` | Update education |
-| RemoveEducation | Command | `DELETE /api/profiles/me/education/{id}` | Remove education |
-| AddCertification | Command | `POST /api/profiles/me/certifications` | Add certification |
-| RemoveCertification | Command | `DELETE /api/profiles/me/certifications/{id}` | Remove certification |
-| AddLanguage | Command | `POST /api/profiles/me/languages` | Add language |
-| RemoveLanguage | Command | `DELETE /api/profiles/me/languages/{id}` | Remove language |
-| ReorderSections | Command | `PATCH /api/profiles/me/sections/reorder` | Reorder all sections |
-| ImportResume | Command | `POST /api/profiles/me/import` | Upload PDF/DOCX → AI parse |
-| ExportProfile | Query | `GET /api/profiles/me/export` | Download JSON |
-| GetCompleteness | Query | `GET /api/profiles/me/completeness` | Completeness % + suggestions |
-| ShareProfile | Command | `POST /api/profiles/me/share` | Generate/toggle share link |
-| GetSharedProfile | Query | `GET /api/profiles/shared/{shareId}` | Public profile view |
+| AddSection | Command | `POST /api/profiles/me/sections` | Add a section (any type: experience, project, skill, etc.) |
+| UpdateSection | Command | `PUT /api/profiles/me/sections/{id}` | Update a section by ID |
+| RemoveSection | Command | `DELETE /api/profiles/me/sections/{id}` | Remove a section by ID |
+| ReorderSections | Command | `PUT /api/profiles/me/sections/reorder` | Reorder sections via SectionOrder |
+| ImportResumeGetUploadUrl | Command | `POST /api/profiles/me/import/upload-url` | Get RustFS presigned upload URL |
+| ImportResumeParse | Command | `POST /api/profiles/me/import/parse` | Trigger AI resume parsing (Hangfire) |
+| ImportResumeParseStatus | Query | `GET /api/profiles/me/import/parse/{parseId}/status` | Poll parsing job status |
+| ImportResumeConfirm | Command | `POST /api/profiles/me/import/confirm` | Confirm parsed data import |
+| ExportProfile | Command | `POST /api/profiles/me/export` | Export profile as JSON |
+| GetCompleteness | Query | `GET /api/profiles/me/completeness` | Get profile completeness score |
+| ShareProfile | Command | `POST /api/profiles/me/share` | Generate share link |
+| GetSharedProfile | Query | `GET /api/profiles/shared/{token}` | View shared profile |
 
 **Domain Entities:**
 - `Profile` — Id, UserId, Headline, Summary, Phone, Location, Website, LinkedinUrl, GithubUrl, ShareId, IsShared
@@ -1019,7 +886,7 @@ public static class ModuleExtensions
 
 | Category | Technology | Purpose |
 |----------|-----------|---------|
-| **Runtime** | .NET 9 | Target framework |
+| **Runtime** | .NET 10 | Target framework |
 | **HTTP** | Minimal APIs | Endpoint definitions |
 | **CQRS** | Custom `ICommandHandler` / `IQueryHandler` | Command/query dispatch |
 | **Decoration** | Scrutor | Cross-cutting handler decorators |
@@ -1083,7 +950,7 @@ Traces propagate across:
 - Redis calls
 - External HTTP calls (OpenAI, scraping)
 
-Export to: Jaeger / OTLP / console (configurable)
+Export to: OTel Collector → Grafana LGTM stack (Prometheus for metrics, Loki for logs via Serilog.Sinks.OpenTelemetry, Tempo for traces, Grafana for visualization)
 
 ### Health Checks
 
@@ -1100,12 +967,18 @@ Centralizes common build properties across all projects. Placed at repo root.
 ```xml
 <Project>
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
+  <ItemGroup>
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)../.editorconfig" />
+  </ItemGroup>
 </Project>
 ```
 
@@ -1121,97 +994,97 @@ Central Package Management (CPM). All NuGet package versions defined in one plac
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <!-- EF Core & PostgreSQL -->
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0" />
-
-    <!-- Wolverine & Messaging -->
-    <PackageVersion Include="WolverineFx" Version="3.0.0" />
-    <PackageVersion Include="WolverineFx.RabbitMQ" Version="3.0.0" />
-
-    <!-- gRPC -->
-    <PackageVersion Include="Grpc.AspNetCore" Version="2.67.0" />
-    <PackageVersion Include="Grpc.Net.Client" Version="2.67.0" />
-    <PackageVersion Include="Google.Protobuf" Version="3.28.0" />
-    <PackageVersion Include="Grpc.Tools" Version="2.67.0" />
-
-    <!-- Validation -->
-    <PackageVersion Include="FluentValidation" Version="11.11.0" />
-    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
-
-    <!-- Decoration / DI -->
-    <PackageVersion Include="Scrutor" Version="5.0.0" />
-
-    <!-- Authentication -->
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
-    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.0.0" />
-
-    <!-- Resilience -->
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="9.0.0" />
-
-    <!-- Caching -->
-    <PackageVersion Include="StackExchange.Redis" Version="2.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.0" />
-
-    <!-- Logging -->
-    <PackageVersion Include="Serilog" Version="4.1.0" />
-    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.0" />
-    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
-    <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
-
-    <!-- Observability -->
-    <PackageVersion Include="OpenTelemetry" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.0.0-beta.12" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.0.0-rc9.15" />
-
-    <!-- Background Jobs -->
-    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
-    <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.0" />
+    <!-- API Versioning -->
+    <PackageVersion Include="Asp.Versioning.Http" Version="8.1.1" />
 
     <!-- Health Checks -->
-    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="8.0.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="8.0.0" />
-
-    <!-- API Versioning -->
-    <PackageVersion Include="Asp.Versioning.Http" Version="9.0.0" />
-
-    <!-- AI -->
-    <PackageVersion Include="OpenAI" Version="2.0.0" />
-
-    <!-- Scraping -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.49.0" />
-
-    <!-- PDF -->
-    <PackageVersion Include="PuppeteerSharp" Version="19.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
+    <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
 
     <!-- S3 / Object Storage -->
-    <PackageVersion Include="AWSSDK.S3" Version="3.7.0" />
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.21.2" />
 
     <!-- File Processing -->
-    <PackageVersion Include="PdfPig" Version="0.1.9" />
-    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
 
-    <!-- Security -->
-    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+    <!-- EF Core & PostgreSQL -->
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.6">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageVersion>
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
 
-    <!-- Testing -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageVersion Include="xunit" Version="2.9.0" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.0" />
-    <PackageVersion Include="FluentAssertions" Version="7.0.0" />
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.0.0" />
-    <PackageVersion Include="Testcontainers.RabbitMq" Version="4.0.0" />
-    <PackageVersion Include="Testcontainers.Redis" Version="4.0.0" />
+    <!-- Validation -->
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+
+    <!-- gRPC -->
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.76.0" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.76.0" />
+
+    <!-- Background Jobs -->
+    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
+    <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
+
+    <!-- Authentication -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
+
+    <!-- Caching -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.6" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.6" />
+
+    <!-- Resilience -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="10.0.6" />
+
+    <!-- Scraping -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.59.0" />
+
+    <!-- AI -->
+    <PackageVersion Include="OpenAI" Version="2.10.0" />
+
+    <!-- Observability -->
+    <PackageVersion Include="OpenTelemetry" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient" Version="1.15.0-beta.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.15.0-beta.1" />
+
+    <!-- PDF -->
+    <PackageVersion Include="PdfPig" Version="0.1.14" />
+    <PackageVersion Include="PuppeteerSharp" Version="24.40.0" />
+
+    <!-- Decoration / DI -->
+    <PackageVersion Include="Scrutor" Version="7.0.0" />
+
+    <!-- OpenAPI -->
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.14.0" />
+
+    <!-- Logging -->
+    <PackageVersion Include="Serilog" Version="4.3.1" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
+
+    <!-- Caching (Redis) -->
+    <PackageVersion Include="StackExchange.Redis" Version="2.12.14" />
+
+    <!-- Authentication (JWT) -->
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
+
+    <!-- Static Analysis -->
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.19.0.132793" />
+
+    <!-- Wolverine & Messaging -->
+    <PackageVersion Include="WolverineFx" Version="5.31.1" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="5.31.1" />
   </ItemGroup>
 </Project>
 ```

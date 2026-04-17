@@ -15,7 +15,7 @@ POST /api/auth/refresh
 Content-Type: application/json
 
 {
-  "refreshToken": "string"
+  "refreshTokenValue": "string"
 }
 ```
 
@@ -35,16 +35,18 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "UNAUTHORIZED",
+  "code": "REFRESH_TOKEN_NOT_FOUND",
   "message": "Invalid or expired refresh token"
 }
 ```
+
+> Expired tokens return `REFRESH_TOKEN_EXPIRED` (401). Deleted users return `USER_DELETED` (401).
 
 ## Validation Rules
 
 | Field | Rules |
 |-------|-------|
-| RefreshToken | Required, non-empty string |
+| RefreshTokenValue | Required, non-empty string |
 
 ## Business Rules
 
@@ -159,8 +161,10 @@ stateDiagram-v2
 
 | Code | HTTP Status | When |
 |------|-------------|------|
-| `VALIDATION` | 400 | Missing or empty refresh token |
-| `UNAUTHORIZED` | 401 | Token not found, expired, or user doesn't exist |
+| `VALIDATION` | 400 | Missing or empty refresh token value |
+| `REFRESH_TOKEN_NOT_FOUND` | 404 | Token not found in database |
+| `REFRESH_TOKEN_EXPIRED` | 401 | Token has expired |
+| `USER_DELETED` | 401 | Associated user no longer exists |
 
 ## Security Considerations
 

@@ -16,7 +16,7 @@ Authorization: Bearer {accessToken}
 Content-Type: application/json
 
 {
-  "refreshToken": "string"
+  "refreshTokenValue": "string"
 }
 ```
 
@@ -41,7 +41,7 @@ Content-Type: application/json
 
 | Field | Rules |
 |-------|-------|
-| RefreshToken | Required, non-empty string |
+| RefreshTokenValue | Required, non-empty string |
 
 ## Business Rules
 
@@ -124,3 +124,5 @@ flowchart TD
 ## Design Note
 
 The endpoint exists now so the API contract is stable. When server-side revocation is implemented in Phase 2, only the handler body changes — no endpoint or client changes needed.
+
+> **Note:** Endpoint metadata says 'Revoke refresh token' but the handler is currently a no-op (Phase 1). The OpenAPI description is aspirational for Phase 2.

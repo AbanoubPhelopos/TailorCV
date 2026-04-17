@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\TailorCV.Shared\TailorCV.Shared.csproj" />
+    <ProjectReference Include="..\TailorCV.Infrastructure\TailorCV.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Identity\TailorCV.Identity\TailorCV.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Profile\TailorCV.Profile\TailorCV.Profile.csproj" />
+    <ProjectReference Include="..\Modules\JobScraper\TailorCV.JobScraper\TailorCV.JobScraper.csproj" />
+    <ProjectReference Include="..\Modules\Templates\TailorCV.Templates\TailorCV.Templates.csproj" />
+    <ProjectReference Include="..\Modules\CVGenerator\TailorCV.CVGenerator\TailorCV.CVGenerator.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -47,7 +47,7 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "CONFLICT",
+  "code": "EMAIL_ALREADY_EXISTS",
   "message": "A user with this email already exists"
 }
 ```
@@ -64,7 +64,7 @@ Content-Type: application/json
 ## Business Rules
 
 - Email must be unique (case-insensitive)
-- Password stored as BCrypt hash (never plaintext)
+- Password hashed with PBKDF2 (Rfc2898DeriveBytes.Pbkdf2, HMAC-SHA256, 100k iterations, never plaintext)
 - User role defaults to `User` (not Admin)
 - On registration, a `RefreshToken` is automatically created
 - Access token expiry: 15 minutes
@@ -76,7 +76,7 @@ Content-Type: application/json
 2. **ValidationDecorator** runs FluentValidation rules
 3. **Handler** executes:
    - Check if email exists in DB → return 409 if duplicate
-   - Hash password with BCrypt
+   - Hash password with PBKDF2
    - Create `User` entity (email, hash, firstName, lastName, role=User, createdAt)
    - Create `RefreshToken` entity (userId, token=GUID, expiresAt=now+7days)
    - Save both to `identity.users` and `identity.refresh_tokens`
@@ -118,7 +118,7 @@ sequenceDiagram
         V-->>API: Result.Failure(ConflictError)
         API-->>C: 409 Conflict
     end
-    H->>H: BCrypt.HashPassword(password)
+    H->>H: PasswordHasher.Hash(password)
     H->>DB: Users.Add(user)
     H->>DB: RefreshTokens.Add(refreshToken)
     H->>DB: SaveChangesAsync()
@@ -139,7 +139,7 @@ flowchart TD
     B -->|Invalid| C[Return 400 Validation Error]
     B -->|Valid| D{Email exists in DB?}
     D -->|Yes| E[Return 409 Conflict]
-    D -->|No| F[Hash password with BCrypt]
+    D -->|No| F[Hash password with PBKDF2]
     F --> G[Create User entity]
     G --> H[Create RefreshToken entity]
     H --> I[Save to DB]
@@ -183,11 +183,11 @@ graph LR
 | Code | HTTP Status | When |
 |------|-------------|------|
 | `VALIDATION` | 400 | Invalid email, weak password, empty names |
-| `CONFLICT` | 409 | Email already registered |
+| `EMAIL_ALREADY_EXISTS` | 409 | Email already registered |
 
 ## Security Considerations
 
 - Password never logged or returned in response
-- BCrypt work factor: 12 (adjustable)
+- PBKDF2: HMAC-SHA256, 100,000 iterations, 128-bit salt, 256-bit hash
 - Rate limiting on this endpoint (prevent brute-force registration)
 - Email normalization (trim + lowercase) before uniqueness check
