@@ -1,0 +1,1 @@
+namespace TailorCV.JobScraper.Features;

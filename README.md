@@ -1,189 +1,86 @@
 # TailorCV
 
-An AI-powered CV generation platform that helps job seekers create tailored resumes by matching their existing CVs against job descriptions using GPT-4o.
-
-## Core Idea
-
-Job seekers spend excessive time customizing CVs for each application. TailorCV automates this process by:
-
-1. **Importing** existing CVs via manual entry, text paste, or OCR from uploaded documents
-2. **Matching** against job descriptions scraped from URLs or manually entered
-3. **Generating** AI-tailored CV content optimized for ATS compatibility
-4. **Exporting** professional PDF and DOCX documents with multiple template options
+AI-powered CV generator. Users create profiles, input job descriptions, and generate tailored CVs.
 
 ## Architecture
 
-- **Modular Monolith** — Five bounded contexts (Identity, CVProfile, JobDescription, CVGeneration, Templates, Export) sharing a single database with schema-per-module isolation
-- **Vertical Slice** — Feature folders containing controller, service, and repository for each use case
-- **Controller-based API** — Traditional MVC controllers for clear endpoint grouping
-- **CQRS** — MediatR for command/query handling with pipeline behaviors (validation, logging)
-- **Result Pattern** — ErrorOr discriminated unions for explicit error handling
+Modular monolith (.NET 10) with vertical slice architecture. One `.cs` file per feature. Separate PostgreSQL schema per module. Modules communicate async via Wolverine + RabbitMQ (planned) or sync via gRPC (planned).
 
-## Technology Stack
-
-### Backend
-
-| Concern | Technology |
-|---------|------------|
-| Framework | ASP.NET Core 8.0 |
-| API Style | Controllers with action results |
-| ORM | Entity Framework Core 8.x |
-| Database | PostgreSQL 16 |
-| CQRS/Mediator | MediatR 12.x |
-| Validation | FluentValidation 11.x |
-| Result Pattern | ErrorOr 2.x |
-| Auth | JWT Bearer (RS256), Refresh Token Rotation |
-| Background Jobs | Hangfire 1.8.x with PostgreSQL |
-| AI Integration | OpenAI .NET SDK (GPT-4o, GPT-4o-mini) |
-| PDF Generation | QuestPDF 2024.x |
-| DOCX Generation | DocumentFormat.OpenXml 3.x |
-| OCR | Tesseract 5.x, PdfPig 0.1.x |
-| Web Scraping | Microsoft.Playwright 1.x |
-| Logging | Serilog 3.x with Seq |
-| API Documentation | Swagger |
-
-### Frontend
-
-| Concern | Technology |
-|---------|------------|
-| Framework | React 18.x |
-| Language | TypeScript 5.x |
-| Build Tool | Vite 5.x |
-| Routing | React Router 6.x |
-| Server State | TanStack Query 5.x |
-| Client State | Zustand 4.x |
-| Forms | React Hook Form 7.x with Zod |
-| UI Components | shadcn/ui (Radix UI + Tailwind) |
-| HTTP Client | Axios 1.x |
-| Icons | Lucide React |
-
-## Project Structure
-
-```
-TailorCV/
-├── TailorCV.slnx
-├── src/
-│   ├── TailorCV.Api/                      # Controllers, middleware, composition root
-│   │
-│   ├── TailorCV.SharedKernel/             # Cross-cutting contracts
-│   │   ├── Entity.cs                       # Base entity
-│   │   ├── Result.cs, Error.cs             # Result<T> discriminated union
-│   │   ├── Behaviors/                      # Validation, logging pipeline behaviors
-│   │   └── Interfaces/                     # IDateTimeProvider, IApplicationDbContext
-│   │
-│   ├── TailorCV.Infrastructure/            # Shared infrastructure
-│   │   ├── Database/                       # ApplicationDbContext, interceptors
-│   │   ├── Authentication/                # JWT, password hashing, user context
-│   │   └── Services/                      # File storage, email (future)
-│   │
-│   └── Modules/
-│       ├── TailorCV.Modules.Identity/      # User auth, roles, permissions
-│       ├── TailorCV.Modules.CVProfile/    # CV profiles and sections
-│       ├── TailorCV.Modules.JobDescription/  # Job descriptions, URL scraping
-│       ├── TailorCV.Modules.CVGeneration/ # AI generation, background jobs
-│       ├── TailorCV.Modules.Templates/    # Template catalog
-│       └── TailorCV.Modules.Export/       # PDF/DOCX rendering
-│
-├── client/                                # React frontend
-│   └── src/
-│       ├── api/                           # Axios client
-│       ├── hooks/                         # TanStack Query hooks
-│       ├── stores/                         # Zustand stores
-│       ├── pages/                         # Route pages
-│       └── components/                    # UI components
-│
-└── tests/                                 # Test projects
-```
-
-### Module Dependencies
-
-```
-TailorCV.Api → All Modules + SharedKernel + Infrastructure
-Each Module → TailorCV.SharedKernel (only)
-Infrastructure → TailorCV.SharedKernel
-
-NO module references another module directly.
-```
-
-### Database Schema Strategy
-
-| Module | Schema | Purpose |
-|--------|--------|---------|
-| Identity | `identity` | Users, roles, permissions |
-| CVProfile | `cv_profile` | CV profiles and sections |
-| JobDescription | `job` | Job descriptions |
-| CVGeneration | `generation` | Generated CVs |
-| Templates | `templates` | Template catalog |
-
-## Key Features
-
-### AI-Powered Generation
-- GPT-4o tailors CV content section-by-section against job descriptions
-- Parallel generation for faster processing
-- Original vs generated diff view with regeneration options
-- Keyword extraction from job descriptions for ATS optimization
-
-### Import Pipeline
-- Text paste with AI-structured parsing
-- PDF text extraction (PdfPig) + OCR (Tesseract) for scanned documents
-- User review before saving parsed sections
-
-### Background Processing
-- Hangfire handles AI generation as background jobs
-- URL scraping with Playwright runs asynchronously
-- Persistent job queue with retry policies
-
-### Export Options
-- PDF via QuestPDF with multiple template layouts
-- DOCX via Open XML SDK for Word compatibility
-- Live preview before download
-
-## Getting Started
-
-### Prerequisites
-
-- .NET 8.0 SDK
-- Docker & Docker Compose
-- Node.js 18+ (for frontend)
-
-### Configuration
-
-**User secrets for local development:**
+## Quick Start
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Database=tailorcv;Username=tailorcv;Password=..."
-dotnet user-secrets set "Jwt:SigningKey" "your-rsa-private-key-or-hmac-secret-at-least-32-chars"
-dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
-```
+# Start infrastructure (PostgreSQL only needed for dev)
+docker compose -f infra/docker-compose.yml up -d postgres
 
-### Running with Docker
-
-```bash
-docker-compose up -d
-```
-
-Services:
-- **API**: http://localhost:5000
-- **PostgreSQL**: localhost:5432
-- **Seq (Logs)**: http://localhost:5341
-
-### Running Locally
-
-**Backend:**
-```bash
-cd TailorCV
-dotnet restore
-dotnet build
+# Run the API (auto-migrates in Development)
 dotnet run --project src/TailorCV.Api
+
+# API: http://localhost:5062
+# Scalar docs: http://localhost:5062/scalar/v1
+# OpenAPI JSON: http://localhost:5062/openapi/v1.json
+# Health: http://localhost:5062/health
 ```
 
-**Frontend:**
+## Solution Structure
+
+```
+src/
+├── TailorCV.Api/              # Host (Minimal APIs, JWT auth, Scalar OpenAPI)
+├── TailorCV.Shared/           # Shared kernel (Result, Error, CQRS interfaces, decorators)
+├── TailorCV.Infrastructure/   # Shared infra (S3, Redis, OTel — stubs)
+├── protos/                    # gRPC contracts (empty placeholders)
+└── Modules/
+    ├── Identity/              # ✅ Implemented — register, login, refresh, logout
+    ├── Profile/               # 🔧 Stubs — domain scaffolded, features empty
+    ├── JobScraper/            # 🔧 Stubs — domain scaffolded, features empty
+    ├── Templates/             # 📋 Directory only
+    └── CVGenerator/           # 📋 Directory only
+```
+
+## Tech Stack
+
+- **Runtime:** .NET 10, ASP.NET Core Minimal APIs
+- **Database:** PostgreSQL + EF Core (snake_case via `UseSnakeCaseNamingConvention()`)
+- **Auth:** JWT Bearer (PBKDF2 password hashing, refresh token rotation)
+- **API Docs:** Microsoft.AspNetCore.OpenApi + Scalar
+- **Observability:** Serilog + OpenTelemetry + Grafana LGTM stack
+- **Analysis:** SonarAnalyzer.CSharp (warnings as errors)
+- **Package Management:** Central Package Management (`Directory.Packages.props`)
+
+## Build & Verify
+
 ```bash
-cd TailorCV/client
-npm install
-npm run dev
+dotnet build TailorCV.slnx   # Must pass with 0 errors, 0 warnings
 ```
 
-## License
+## Migrations
 
-MIT
+Each module has its own `DbContext` with a dedicated PostgreSQL schema. Design-time factories use hardcoded dev connection strings.
+
+```bash
+# Example: adding a migration for a module
+dotnet ef migrations add <Name> \
+  --project src/Modules/<Module>/TailorCV.<Module> \
+  --startup-project src/TailorCV.Api \
+  --output-dir Infrastructure/Migrations
+```
+
+Auto-migration runs on startup in Development via `MigrateIdentityModuleAsync()`.
+
+## Infrastructure
+
+```bash
+# Full stack
+docker compose -f infra/docker-compose.yml up -d
+
+# Individual services
+docker compose -f infra/docker-compose.yml up -d postgres    # PostgreSQL (port 5432)
+docker compose -f infra/docker-compose.yml up -d rabbitmq    # RabbitMQ (port 5672/15672)
+docker compose -f infra/docker-compose.yml up -d redis       # Redis (port 6379)
+```
+
+## Documentation
+
+- `docs/architecture/overview.md` — full architecture reference (~1600 lines)
+- `docs/architecture/project-dependencies.md` — project references and NuGet packages
+- `docs/features/` — per-feature specs with mermaid diagrams (identity, profile, jobscraper)
