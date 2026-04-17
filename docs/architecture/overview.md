@@ -111,10 +111,7 @@ TailorCV/
 │   │   ├── Pagination/
 │   │   │   └── OffsetPagedList.cs                # Standard offset pagination wrapper
 │   │   ├── Events/
-│   │   │   ├── IntegrationEvent.cs              # Base integration event
-│   │   │   ├── CVGeneratedEvent.cs
-│   │   │   ├── ProfileUpdatedEvent.cs
-│   │   │   └── JobDescriptionSavedEvent.cs
+│   │   │   └── IntegrationEvent.cs              # Base integration event
 │   │   ├── Interfaces/
 │   │   │   ├── ICurrentUserService.cs
 │   │   │   └── IDateTimeProvider.cs
@@ -141,136 +138,151 @@ TailorCV/
 │   │
 │   └── Modules/
 │       ├── Identity/
-│       │   └── TailorCV.Identity/
-│       │       ├── Features/
-│       │       │   ├── Register.cs
-│       │       │   ├── Login.cs
-│       │       │   ├── RefreshToken.cs
-│       │       │   └── Logout.cs
-│       │       ├── Domain/
-│       │       │   ├── User.cs
-│       │       │   ├── RefreshToken.cs
-│       │       │   └── Enums/
-│       │       │       └── UserRole.cs
-│       │       ├── Infrastructure/
-│       │       │   ├── IdentityDbContext.cs
-│       │       │   ├── Configurations/
-│       │       │   │   ├── UserConfiguration.cs
-│       │       │   │   └── RefreshTokenConfiguration.cs
-│       │       │   └── JwtService.cs
-│       │       └── ModuleExtensions.cs
+│       │   ├── TailorCV.Identity/
+│       │   │   ├── Features/
+│       │   │   │   ├── Register.cs
+│       │   │   │   ├── Login.cs
+│       │   │   │   ├── RefreshToken.cs
+│       │   │   │   └── Logout.cs
+│       │   │   ├── Domain/
+│       │   │   │   ├── User.cs
+│       │   │   │   ├── RefreshToken.cs
+│       │   │   │   └── Enums/
+│       │   │   │       └── UserRole.cs
+│       │   │   ├── Infrastructure/
+│       │   │   │   ├── IdentityDbContext.cs
+│       │   │   │   ├── Configurations/
+│       │   │   │   │   ├── UserConfiguration.cs
+│       │   │   │   │   └── RefreshTokenConfiguration.cs
+│       │   │   │   └── JwtService.cs
+│       │   │   └── ModuleExtensions.cs
+│       │   └── TailorCV.Identity.Contracts/        # Events + DTOs published by Identity
+│       │       └── Events/                          # (currently none — no events published)
 │       │
 │       ├── Profile/
-│       │   └── TailorCV.Profile/
-│       │       ├── Features/
-│       │       │   ├── CreateProfile.cs
-│       │       │   ├── UpdateProfile.cs
-│       │       │   ├── GetProfile.cs
-│       │       │   ├── AddSection.cs              # Unified add for all section types
-│       │       │   ├── UpdateSection.cs           # Unified update for all section types
-│       │       │   ├── RemoveSection.cs           # Unified remove for all section types
-│       │       │   ├── ReorderSections.cs
-│       │       │   ├── ImportResumeGetUploadUrl.cs
-│       │       │   ├── ImportResumeParse.cs
-│       │       │   ├── ImportResumeParseStatus.cs
-│       │       │   ├── ImportResumeConfirm.cs
-│       │       │   ├── ExportProfile.cs
-│       │       │   ├── GetCompleteness.cs
-│       │       │   ├── ShareProfile.cs
-│       │       │   └── GetSharedProfile.cs
-│       │       ├── Domain/
-│       │       │   ├── Profile.cs
-│       │       │   ├── Experience.cs
-│       │       │   ├── Project.cs
-│       │       │   ├── Skill.cs
-│       │       │   ├── Education.cs
-│       │       │   ├── Certification.cs
-│       │       │   ├── Language.cs
-│       │       │   ├── CustomSection.cs
-│       │       │   ├── SectionOrder.cs
-│       │       │   ├── ParseJob.cs
-│       │       │   └── Enums/
-│       │       │       ├── SectionType.cs
-│       │       │       ├── ParseJobStatus.cs
-│       │       │       └── LanguageProficiency.cs
-│       │       ├── Infrastructure/
-│       │       │   ├── ProfileDbContext.cs
-│       │       │   ├── Configurations/
-│       │       │   └── AI/
-│       │       │       └── ResumeParserService.cs
-│       │       └── ModuleExtensions.cs
+│       │   ├── TailorCV.Profile/
+│       │   │   ├── Features/
+│       │   │   │   ├── CreateProfile.cs
+│       │   │   │   ├── UpdateProfile.cs
+│       │   │   │   ├── GetProfile.cs
+│       │   │   │   ├── AddSection.cs              # Unified add for all section types
+│       │   │   │   ├── UpdateSection.cs           # Unified update for all section types
+│       │   │   │   ├── RemoveSection.cs           # Unified remove for all section types
+│       │   │   │   ├── ReorderSections.cs
+│       │   │   │   ├── ImportResumeGetUploadUrl.cs
+│       │   │   │   ├── ImportResumeParse.cs
+│       │   │   │   ├── ImportResumeParseStatus.cs
+│       │   │   │   ├── ImportResumeConfirm.cs
+│       │   │   │   ├── ExportProfile.cs
+│       │   │   │   ├── GetCompleteness.cs
+│       │   │   │   ├── ShareProfile.cs
+│       │   │   │   └── GetSharedProfile.cs
+│       │   │   ├── Domain/
+│       │   │   │   ├── Profile.cs
+│       │   │   │   ├── Experience.cs
+│       │   │   │   ├── Project.cs
+│       │   │   │   ├── Skill.cs
+│       │   │   │   ├── Education.cs
+│       │   │   │   ├── Certification.cs
+│       │   │   │   ├── Language.cs
+│       │   │   │   ├── CustomSection.cs
+│       │   │   │   ├── SectionOrder.cs
+│       │   │   │   ├── ParseJob.cs
+│       │   │   │   └── Enums/
+│       │   │   │       ├── SectionType.cs
+│       │   │   │       ├── ParseJobStatus.cs
+│       │   │   │       └── LanguageProficiency.cs
+│       │   │   ├── Infrastructure/
+│       │   │   │   ├── ProfileDbContext.cs
+│       │   │   │   ├── Configurations/
+│       │   │   │   └── AI/
+│       │   │   │       └── ResumeParserService.cs
+│       │   │   └── ModuleExtensions.cs
+│       │   └── TailorCV.Profile.Contracts/         # Events + DTOs published by Profile
+│       │       └── Events/
+│       │           └── ProfileUpdatedEvent.cs       # Published when profile is created/updated
 │       │
 │       ├── JobScraper/
-│       │   └── TailorCV.JobScraper/
-│       │       ├── Features/
-│       │       │   ├── ParseJobDescription.cs
-│       │       │   ├── ScrapeJobUrl.cs
-│       │       │   ├── SaveJobDescription.cs
-│       │       │   ├── ListJobs.cs
-│       │       │   └── GetJob.cs
-│       │       ├── Domain/
-│       │       │   ├── JobDescription.cs
-│       │       │   └── Enums/
-│       │       │       └── SeniorityLevel.cs
-│       │       ├── Infrastructure/
-│       │       │   ├── JobScraperDbContext.cs
-│       │       │   ├── Configurations/
-│       │       │   ├── Scraping/
-│       │       │   │   └── PlaywrightScrapingService.cs
-│       │       │   └── AI/
-│       │       │       └── JobDescriptionParserService.cs
-│       │       └── ModuleExtensions.cs
+│       │   ├── TailorCV.JobScraper/
+│       │   │   ├── Features/
+│       │   │   │   ├── ParseJobDescription.cs
+│       │   │   │   ├── ScrapeJobUrl.cs
+│       │   │   │   ├── SaveJobDescription.cs
+│       │   │   │   ├── ListJobs.cs
+│       │   │   │   └── GetJob.cs
+│       │   │   ├── Domain/
+│       │   │   │   ├── JobDescription.cs
+│       │   │   │   ├── ParseJob.cs
+│       │   │   │   └── Enums/
+│       │   │   │       ├── SeniorityLevel.cs
+│       │   │   │       └── ParseJobStatus.cs
+│       │   │   ├── Infrastructure/
+│       │   │   │   ├── JobScraperDbContext.cs
+│       │   │   │   ├── Configurations/
+│       │   │   │   ├── Scraping/
+│       │   │   │   │   └── PlaywrightScrapingService.cs
+│       │   │   │   └── AI/
+│       │   │   │       └── JobDescriptionParserService.cs
+│       │   │   └── ModuleExtensions.cs
+│       │   └── TailorCV.JobScraper.Contracts/      # Events + DTOs published by JobScraper
+│       │       └── Events/
+│       │           └── JobDescriptionSavedEvent.cs  # Published when a JD is saved/parsed
 │       │
 │       ├── Templates/
-│       │   └── TailorCV.Templates/
-│       │       ├── Features/
-│       │       │   ├── BrowseTemplates.cs
-│       │       │   ├── GetTemplate.cs
-│       │       │   ├── PreviewTemplate.cs
-│       │       │   ├── CreateTemplate.cs        # Admin
-│       │       │   ├── UpdateTemplate.cs        # Admin
-│       │       │   └── DisableTemplate.cs       # Admin
-│       │       ├── Domain/
-│       │       │   ├── Template.cs
-│       │       │   └── Enums/
-│       │       │       ├── TemplateCategory.cs
-│       │       │       └── TemplateStyle.cs
-│       │       ├── Infrastructure/
-│       │       │   ├── TemplatesDbContext.cs
-│       │       │   ├── Configurations/
-│       │       │   └── Seeding/
-│       │       │       └── TemplateSeeder.cs
-│       │       └── ModuleExtensions.cs
+│       │   ├── TailorCV.Templates/
+│       │   │   ├── Features/
+│       │   │   │   ├── BrowseTemplates.cs
+│       │   │   │   ├── GetTemplate.cs
+│       │   │   │   ├── PreviewTemplate.cs
+│       │   │   │   ├── CreateTemplate.cs        # Admin
+│       │   │   │   ├── UpdateTemplate.cs        # Admin
+│       │   │   │   └── DisableTemplate.cs       # Admin
+│       │   │   ├── Domain/
+│       │   │   │   ├── Template.cs
+│       │   │   │   └── Enums/
+│       │   │   │       ├── TemplateCategory.cs
+│       │   │   │       └── TemplateStyle.cs
+│       │   │   ├── Infrastructure/
+│       │   │   │   ├── TemplatesDbContext.cs
+│       │   │   │   ├── Configurations/
+│       │   │   │   └── Seeding/
+│       │   │   │       └── TemplateSeeder.cs
+│       │   │   └── ModuleExtensions.cs
+│       │   └── TailorCV.Templates.Contracts/       # Events + DTOs published by Templates
+│       │       └── Events/                          # (currently none — templates don't publish events)
 │       │
 │       └── CVGenerator/
-│           └── TailorCV.CVGenerator/
-│               ├── Features/
-│               │   ├── GenerateCV.cs
-│               │   ├── GenerateCoverLetter.cs
-│               │   ├── GetMatchScore.cs
-│               │   ├── PreviewCV.cs
-│               │   ├── ExportPdf.cs
-│               │   ├── RegenerateCV.cs
-│               │   ├── ListHistory.cs
-│               │   └── GetGeneratedCV.cs
-│               ├── Domain/
-│               │   ├── GeneratedCV.cs
-│               │   ├── CoverLetter.cs
-│               │   ├── MatchScore.cs
-│               │   └── CVContent.cs
-│               ├── Infrastructure/
-│               │   ├── CVGeneratorDbContext.cs
-│               │   ├── Configurations/
-│               │   ├── AI/
-│               │   │   ├── CVTailoringService.cs
-│               │   │   └── CoverLetterService.cs
-│               │   └── Export/
-│               │       └── PuppeteerPdfService.cs
-│               ├── Events/
-│               │   └── CVGeneratedEventHandler.cs  # Wolverine event handlers
-│               ├── Sagas/
-│               │   └── CVGenerationSaga.cs         # Wolverine saga
-│               └── ModuleExtensions.cs
+│           ├── TailorCV.CVGenerator/
+│           │   ├── Features/
+│           │   │   ├── GenerateCV.cs
+│           │   │   ├── GenerateCoverLetter.cs
+│           │   │   ├── GetMatchScore.cs
+│           │   │   ├── PreviewCV.cs
+│           │   │   ├── ExportPdf.cs
+│           │   │   ├── RegenerateCV.cs
+│           │   │   ├── ListHistory.cs
+│           │   │   └── GetGeneratedCV.cs
+│           │   ├── Domain/
+│           │   │   ├── GeneratedCV.cs
+│           │   │   ├── CoverLetter.cs
+│           │   │   ├── MatchScore.cs
+│           │   │   └── CVContent.cs
+│           │   ├── Infrastructure/
+│           │   │   ├── CVGeneratorDbContext.cs
+│           │   │   ├── Configurations/
+│           │   │   ├── AI/
+│           │   │   │   ├── CVTailoringService.cs
+│           │   │   │   └── CoverLetterService.cs
+│           │   │   └── Export/
+│           │   │       └── PuppeteerPdfService.cs
+│           │   ├── Events/
+│           │   │   └── CVGeneratedEventHandler.cs  # Wolverine event handlers
+│           │   ├── Sagas/
+│           │   │   └── CVGenerationSaga.cs         # Wolverine saga
+│           │   └── ModuleExtensions.cs
+│           └── TailorCV.CVGenerator.Contracts/     # Events + DTOs published by CVGenerator
+│               └── Events/
+│                   └── CVGeneratedEvent.cs          # Published when a CV is generated
 │
 ├── proto/                                       # gRPC contracts
 │   ├── identity.proto
@@ -295,8 +307,92 @@ TailorCV/
     ├── features/
     │   ├── overview.md
     │   └── full.md
-    └── architecture/
-        └── overview.md                          # This file
+     └── architecture/
+         └── overview.md                          # This file
+ ```
+
+---
+
+## Module Contracts
+
+Each module that publishes integration events or exposes DTOs for cross-module communication has a dedicated `.Contracts` project. These projects contain **only** plain data types — no logic, no dependencies.
+
+### Why Separate Contracts Projects?
+
+- **Microservice readiness:** When splitting a module into a separate service, its Contracts project becomes a shared NuGet package that other services reference. No code changes needed in consumers.
+- **Dependency isolation:** Modules never reference each other's full project — only Contracts. This prevents accidental coupling to internal domain or infrastructure code.
+- **Versioning:** Contracts can be versioned independently. A consumer only needs to update when the event schema changes.
+
+### Contracts Project Contents
+
+```
+TailorCV.Identity.Contracts/
+└── Events/                           # (currently empty — Identity doesn't publish events)
+    # Future: UserRegisteredEvent, UserDeletedEvent, etc.
+
+TailorCV.Profile.Contracts/
+└── Events/
+    └── ProfileUpdatedEvent.cs        # Guid UserId, Guid ProfileId, DateTime UpdatedAt
+
+TailorCV.JobScraper.Contracts/
+└── Events/
+    └── JobDescriptionSavedEvent.cs   # Guid JobId, Guid UserId, string Title, DateTime SavedAt
+
+TailorCV.Templates.Contracts/
+└── Events/                           # (currently empty — Templates don't publish events)
+
+TailorCV.CVGenerator.Contracts/
+└── Events/
+    └── CVGeneratedEvent.cs           # Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt
+```
+
+### Contracts Project Dependencies (.csproj)
+
+```xml
+<!-- TailorCV.CVGenerator.csproj — heaviest consumer of contracts -->
+<ItemGroup>
+  <ProjectReference Include="..\Profile\TailorCV.Profile.Contracts\TailorCV.Profile.Contracts.csproj" />
+  <ProjectReference Include="..\JobScraper\TailorCV.JobScraper.Contracts\TailorCV.JobScraper.Contracts.csproj" />
+  <ProjectReference Include="..\Templates\TailorCV.Templates.Contracts\TailorCV.Templates.Contracts.csproj" />
+</ItemGroup>
+
+<!-- TailorCV.Profile.csproj — only needs Identity contracts for gRPC responses -->
+<ItemGroup>
+  <ProjectReference Include="..\Identity\TailorCV.Identity.Contracts\TailorCV.Identity.Contracts.csproj" />
+</ItemGroup>
+
+<!-- Contracts projects themselves — NO references to other TailorCV projects -->
+<!-- TailorCV.Profile.Contracts.csproj -->
+<ItemGroup>
+  <PackageReference Include="Wolverine" />  <!-- only if event base types are needed -->
+</ItemGroup>
+```
+
+### Dependency Graph
+
+```
+                    ┌─────────────────────┐
+                    │ TailorCV.Shared      │
+                    │ (Primitives, Results) │
+                    └──────────┬───────────┘
+                               │ (referenced by ALL projects)
+              ┌────────────────┼────────────────┐
+              │                │                │
+    ┌─────────▼──────┐  ┌─────▼──────┐  ┌──────▼──────────┐
+    │  Identity       │  │  Profile   │  │  JobScraper     │
+    │  .Contracts     │  │  .Contracts│  │  .Contracts     │
+    └───────┬────────┘  └─────┬──────┘  └──────┬──────────┘
+            │                 │                │
+            │                 │                │
+            ▼                 ▼                ▼
+    ┌───────────────┐  ┌──────────────────────────────┐
+    │  Profile       │  │  CVGenerator                  │
+    │  (full module) │  │  (full module)                │
+    │                │  │  references:                  │
+    │                │  │    Profile.Contracts           │
+    │                │  │    JobScraper.Contracts        │
+    │                │  │    Templates.Contracts         │
+    └───────────────┘  └──────────────────────────────┘
 ```
 
 ---
@@ -1165,8 +1261,9 @@ Each module has its own PostgreSQL schema. Tables are prefixed by module:
  │   ├── section_orders
  │   └── parse_jobs
  │
- ├── jobscraper schema
- │   └── job_descriptions
+  ├── jobscraper schema
+  │   ├── job_descriptions
+  │   └── parse_jobs                                    # Async parsing status tracking
  │
  ├── templates schema
  │   └── templates
@@ -1398,29 +1495,58 @@ message GeneratedCVResponse {
 ### Integration Events (via Wolverine + RabbitMQ)
 
 ```
-┌──────────────┐    CVGeneratedEvent    ┌──────────────┐
-│  CVGenerator │ ──────────────────────→ │   Dashboard   │
-│   (publish)  │                         │   (listen)    │
-└──────────────┘                         └──────────────┘
+┌──────────────────────┐                              ┌──────────────────┐
+│  CVGenerator         │   CVGeneratedEvent           │   Dashboard       │
+│  publishes from:     │ ────────────────────────────→ │   listens via:   │
+│  .CVGenerator.Contracts │                            │  ref: .CVGenerator.Contracts │
+└──────────────────────┘                              └──────────────────┘
 
-┌──────────────┐   ProfileUpdatedEvent  ┌──────────────┐
-│   Profile    │ ──────────────────────→ │  CVGenerator  │
-│   (publish)  │                         │   (listen)    │
-└──────────────┘                         └──────────────┘
+┌──────────────────────┐   ProfileUpdatedEvent        ┌──────────────────┐
+│  Profile             │ ────────────────────────────→ │  CVGenerator     │
+│  publishes from:     │                              │   listens via:   │
+│  .Profile.Contracts  │                              │  ref: .Profile.Contracts │
+└──────────────────────┘                              └──────────────────┘
 
-┌──────────────┐  JobDescriptionSaved   ┌──────────────┐
-│  JobScraper  │ ──────────────────────→ │  CVGenerator  │
-│   (publish)  │                         │   (listen)    │
-└──────────────┘                         └──────────────┘
+┌──────────────────────┐  JobDescriptionSavedEvent    ┌──────────────────┐
+│  JobScraper          │ ────────────────────────────→ │  CVGenerator     │
+│  publishes from:     │                              │   listens via:   │
+│  .JobScraper.Contracts │                            │  ref: .JobScraper.Contracts │
+└──────────────────────┘                              └──────────────────┘
 ```
 
-### Event Definitions (in TailorCV.Shared)
+### Event Definitions (in per-module Contracts projects)
+
+Each module that publishes events defines them in its own `.Contracts` project. Consumers reference the publisher's Contracts project — never the full module.
+
+```
+TailorCV.Profile.Contracts/Events/ProfileUpdatedEvent.cs
+TailorCV.JobScraper.Contracts/Events/JobDescriptionSavedEvent.cs
+TailorCV.CVGenerator.Contracts/Events/CVGeneratedEvent.cs
+```
 
 ```csharp
-public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt);
+// TailorCV.Profile.Contracts — published when profile is created/updated
 public record ProfileUpdatedEvent(Guid UserId, Guid ProfileId, DateTime UpdatedAt);
+
+// TailorCV.JobScraper.Contracts — published when a JD is saved/parsed
 public record JobDescriptionSavedEvent(Guid JobId, Guid UserId, string Title, DateTime SavedAt);
+
+// TailorCV.CVGenerator.Contracts — published when a CV is generated
+public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt);
 ```
+
+**Contracts project references (who references whom):**
+
+| Module | References |
+|--------|-----------|
+| CVGenerator | `TailorCV.Profile.Contracts`, `TailorCV.JobScraper.Contracts`, `TailorCV.Templates.Contracts` |
+| Dashboard (if separate) | `TailorCV.CVGenerator.Contracts` |
+| Profile | `TailorCV.Identity.Contracts` (for user name via gRPC — not events) |
+| JobScraper | _(none — no incoming events)_ |
+| Templates | _(none — no incoming events)_ |
+| Identity | _(none — publishes no events)_ |
+
+> **Rule:** A module's Contracts project contains only `record` types (events + DTOs). No logic, no dependencies on other TailorCV projects. This keeps them safe to share across service boundaries when splitting into microservices.
 
 ### CV Generation Saga (Wolverine)
 
@@ -1450,6 +1576,7 @@ When the time comes to split modules into separate services:
 | Wolverine + RabbitMQ stays the same (same broker) | None |
 | Each module's DB schema → separate database | Medium (migration) |
 | Shared kernel → shared NuGet package or git submodule | Low |
+| Contracts projects → shared NuGet packages (already isolated) | Low |
 | Frontend → point API calls to new service URLs or add API gateway | Medium |
 
 **What does NOT change:**
