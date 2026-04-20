@@ -9,6 +9,7 @@ using TailorCV.Api.OpenApi;
 using TailorCV.Api.Services;
 using TailorCV.Identity;
 using TailorCV.Identity.Infrastructure;
+using TailorCV.JobScraper;
 using TailorCV.Shared.Interfaces;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,15 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddOpenApi(options =>
 {
+    options.CreateSchemaReferenceId = (info) =>
+    {
+        if (info.Type.DeclaringType is { } declaringType)
+        {
+            return $"{declaringType.Name}{info.Type.Name}";
+        }
+
+        return null;
+    };
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
 
@@ -30,6 +40,7 @@ builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddJobScraperModule(builder.Configuration);
 
 JwtSettings jwtSettings = new();
 builder.Configuration.GetSection("JwtSettings").Bind(jwtSettings);
@@ -57,6 +68,7 @@ builder.Services.AddAuthorization();
 WebApplication app = builder.Build();
 
 await app.MigrateIdentityModuleAsync();
+await app.MigrateJobScraperModuleAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -76,6 +88,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
+app.MapJobScraperEndpoints();
 
 app.MapGet("/", () => "TailorCV API");
 

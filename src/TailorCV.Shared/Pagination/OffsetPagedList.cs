@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace TailorCV.Shared.Pagination;
 
 public record PagingInfo(
@@ -6,6 +8,8 @@ public record PagingInfo(
     int Page,
     int PageSize,
     int Total);
+
+public record PagingParams(int Page = 1, int PageSize = 10);
 
 public class OffsetPagedList<T>
 {
@@ -21,5 +25,23 @@ public class OffsetPagedList<T>
             Page: page,
             PageSize: pageSize,
             Total: total);
+    }
+}
+
+public static class OffsetPagedListExtensions
+{
+    public static async Task<OffsetPagedList<T>> ToOffsetPagedListAsync<T>(
+        this IQueryable<T> query,
+        PagingParams paging,
+        CancellationToken ct = default)
+    {
+        int total = await query.CountAsync(ct);
+
+        IReadOnlyList<T> items = await query
+            .Skip((paging.Page - 1) * paging.PageSize)
+            .Take(paging.PageSize)
+            .ToListAsync(ct);
+
+        return new OffsetPagedList<T>(items, paging.Page, paging.PageSize, total);
     }
 }
