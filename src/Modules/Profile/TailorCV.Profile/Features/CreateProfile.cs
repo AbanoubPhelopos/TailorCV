@@ -1,1 +1,160 @@
+#pragma warning disable CA1054
+
+using FluentValidation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+using TailorCV.Profile.Domain;
+using TailorCV.Profile.Infrastructure;
+using TailorCV.Shared.CQRS;
+using TailorCV.Shared.Interfaces;
+using TailorCV.Shared.Results;
+
 namespace TailorCV.Profile.Features;
+
+public static class CreateProfile
+{
+    public record Request(
+        string? Headline,
+        string? Summary,
+        string? Phone,
+        string? Location,
+        string? Website,
+        string? LinkedinUrl,
+        string? GithubUrl);
+
+    public record Response(
+        Guid Id,
+        string Headline,
+        string Summary,
+        string Phone,
+        string Location,
+        string Website,
+        string LinkedinUrl,
+        string GithubUrl,
+        int Completeness,
+        object[] Sections,
+        DateTimeOffset CreatedAt);
+
+    public class Validator : AbstractValidator<Request>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Headline)
+                .MaximumLength(200)
+                .When(x => x.Headline is not null);
+
+            RuleFor(x => x.Summary)
+                .MaximumLength(2000)
+                .When(x => x.Summary is not null);
+
+            RuleFor(x => x.Phone)
+                .MaximumLength(50)
+                .When(x => x.Phone is not null);
+
+            RuleFor(x => x.Location)
+                .MaximumLength(200)
+                .When(x => x.Location is not null);
+
+            RuleFor(x => x.Website)
+                .Must(BeAValidUrl)
+                .WithMessage("Website must be a valid URL")
+                .When(x => !string.IsNullOrWhiteSpace(x.Website));
+
+            RuleFor(x => x.LinkedinUrl)
+                .Must(BeAValidUrl)
+                .WithMessage("LinkedIn URL must be a valid URL")
+                .When(x => !string.IsNullOrWhiteSpace(x.LinkedinUrl));
+
+            RuleFor(x => x.GithubUrl)
+                .Must(BeAValidUrl)
+                .WithMessage("GitHub URL must be a valid URL")
+                .When(x => !string.IsNullOrWhiteSpace(x.GithubUrl));
+        }
+
+        private static bool BeAValidUrl(string? url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out Uri? uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        }
+    }
+
+    public class Handler(
+        ProfileDbContext dbContext,
+        ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
+    {
+        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
+        {
+            Guid userId = currentUserService.UserId;
+
+            bool exists = await dbContext.Profiles
+                .AnyAsync(p => p.UserId == userId, ct);
+
+            if (exists)
+            {
+                return Result<Response>.Failure(ProfileErrors.ProfileAlreadyExists);
+            }
+
+            DateTimeOffset now = dateTimeProvider.UtcNow;
+
+            Result<Domain.Profile> profileResult = Domain.Profile.Create(
+                userId,
+                command.Headline ?? string.Empty,
+                command.Summary ?? string.Empty,
+                command.Phone ?? string.Empty,
+                command.Location ?? string.Empty,
+                command.Website ?? string.Empty,
+                command.LinkedinUrl ?? string.Empty,
+                command.GithubUrl ?? string.Empty,
+                now);
+
+            if (profileResult.IsFailure)
+            {
+                return Result<Response>.Failure(profileResult.Error);
+            }
+
+            Domain.Profile profile = profileResult.Value;
+
+            dbContext.Profiles.Add(profile);
+            await dbContext.SaveChangesAsync(ct);
+
+            int completeness = profile.CalculateCompleteness();
+
+            return Result<Response>.Success(new Response(
+                profile.Id,
+                profile.Headline,
+                profile.Summary,
+                profile.Phone,
+                profile.Location,
+                profile.Website,
+                profile.LinkedinUrl,
+                profile.GithubUrl,
+                completeness,
+                Array.Empty<object>(),
+                profile.CreatedAt));
+        }
+    }
+
+    public static void MapEndpoint(IEndpointRouteBuilder app)
+    {
+        app.MapPost("/api/profiles", async (
+            Request request,
+            ICommandHandler<Request, Response> handler,
+            CancellationToken ct) =>
+        {
+            Result<Response> result = await handler.HandleAsync(request, ct);
+            return result.IsSuccess
+                ? Results.Created($"/api/profiles/me", result.Value)
+                : result.ToProblemDetails();
+        })
+        .RequireAuthorization()
+        .WithTags("Profile")
+        .WithName("CreateProfile")
+        .WithSummary("Create user profile")
+        .WithDescription("Creates a new professional profile for the authenticated user. One profile per user.");
+    }
+}
+
+#pragma warning restore CA1054
