@@ -421,3 +421,4 @@ dotnet_diagnostic.S3261.severity = none
 # EF Core auto-generated migrations
 [**/Migrations/**]
 dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CA1861.severity = none
