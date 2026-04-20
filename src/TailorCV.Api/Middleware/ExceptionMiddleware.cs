@@ -35,7 +35,7 @@ public class ExceptionMiddleware
         object response = new
         {
             code = "INTERNAL_ERROR",
-            message = "An unexpected error occurred"
+            message = "An unexpected error occurred.",
         };
 
         await context.Response.WriteAsync(JsonSerializer.Serialize(response));

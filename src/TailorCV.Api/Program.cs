@@ -12,6 +12,9 @@ using TailorCV.Api.Services;
 using TailorCV.Identity;
 using TailorCV.Identity.Infrastructure;
 using TailorCV.JobDescriptions;
+using TailorCV.Profile;
+using TailorCV.Profile.Infrastructure;
+using TailorCV.Infrastructure.Storage;
 using TailorCV.Shared.Interfaces;
 using Wolverine;
 using Wolverine.RabbitMQ;
@@ -40,7 +43,15 @@ builder.Host.UseWolverine(opts =>
 
     opts.ListenToRabbitQueue("job-description.events");
 
-    opts.ApplicationAssembly = typeof(TailorCV.JobDescriptions.ModuleExtensions).Assembly;
+    opts.PublishMessage<TailorCV.Profile.Contracts.Commands.ParseResume>()
+        .ToRabbitQueue("profile.commands");
+
+    opts.PublishMessage<TailorCV.Profile.Contracts.Events.ProfileUpdated>()
+        .ToRabbitQueue("profile.events");
+
+    opts.ListenToRabbitQueue("profile.events");
+
+    opts.ApplicationAssembly = typeof(TailorCV.Profile.ModuleExtensions).Assembly;
     opts.ServiceName = "TailorCV.Api";
 });
 
@@ -66,6 +77,8 @@ builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddJobDescriptionsModule(builder.Configuration);
+builder.Services.AddProfileModule(builder.Configuration);
+builder.Services.AddBlobStorage(builder.Configuration);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -91,6 +104,7 @@ WebApplication app = builder.Build();
 
 await app.MigrateIdentityModuleAsync();
 await app.MigrateJobDescriptionsModuleAsync();
+await app.MigrateProfileModuleAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -111,6 +125,7 @@ if (app.Environment.IsDevelopment())
 app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
 app.MapJobDescriptionsEndpoints();
+app.MapProfileEndpoints();
 
 app.MapGet("/", () => "TailorCV API");
 
