@@ -82,7 +82,7 @@ Authorization: Bearer {accessToken}
 
 ## Inter-module Interactions
 
-**None.** Self-contained within JobScraper module.
+**None.** Self-contained within JobDescriptions module.
 
 ## Diagrams
 
@@ -96,7 +96,7 @@ sequenceDiagram
     participant L as LoggingDecorator
     participant H as Handler
     participant US as ICurrentUserService
-    participant DB as JobScraperDbContext
+    participant DB as JobDescriptionsDbContext
 
     C->>MW: GET /api/jobs + Bearer
     MW->>MW: Validate JWT

@@ -2,7 +2,7 @@
 
 ## Summary
 
-User pastes job description text. Backend processes it asynchronously via OpenAI. Client polls for status until result is ready. Not saved — user must explicitly save via SaveJobDescription.
+User pastes job description text. Backend processes it asynchronously via OpenAI through the JobDescriptions Worker. Client polls for status until result is ready. Not saved — user must explicitly save via SaveJobDescription.
 
 ## Actor
 
@@ -30,7 +30,7 @@ Content-Type: application/json
 }
 ```
 
-Enqueues a **Hangfire job** that sends rawText to OpenAI for structured extraction.
+Creates a `ParseJob` (status=Queued) and publishes `ParseJobText` command via **Wolverine + RabbitMQ**. The JobDescriptions Worker picks it up from the `job-description.commands` queue, calls OpenAI, and publishes the result back as an event.
 
 ### Poll Status
 
@@ -92,9 +92,7 @@ Authorization: Bearer {accessToken}
 
 - Parsed result is **not saved** — user must explicitly save via `SaveJobDescription`
 - Parse is idempotent — user can trigger multiple parses (each gets new parseId)
-- Uses Polly retry for OpenAI API (3 attempts, exponential backoff)
-- ParseJob stored in `jobscraper.parse_jobs` with `type = ManualText`
-- Parse job timeout: 2 minutes (Hangfire)
+- ParseJob stored in `jobdescriptions.parse_jobs` with `type = ManualText`
 - Only the owner can poll their parse jobs
 
 ## Flow
@@ -102,17 +100,19 @@ Authorization: Bearer {accessToken}
 1. Client sends `POST /api/jobs/parse` with rawText
 2. **Auth middleware** validates JWT
 3. **ValidationDecorator** validates rawText length
-4. **Handler** creates `ParseJob` (Queued) + enqueues Hangfire job → returns parseId (202)
-5. **Hangfire background job:**
-   - Update status → Processing
-   - Send rawText to OpenAI for structured extraction (Polly retry)
-   - Map result to `ParsedJob` structure
-   - Update status → Done + parsedData (or Failed + error)
-6. Client polls `GET /api/jobs/parse/{parseId}/status` until DONE or FAILED
+4. **Handler** creates `ParseJob` (status=Queued) + publishes `ParseJobText` via Wolverine → returns parseId (202)
+5. **JobDescriptions Worker** (separate process):
+   - Consumes `ParseJobText` from `job-description.commands` queue
+   - Calls OpenAI for structured extraction
+   - Publishes `JobParsingCompleted` or `JobParsingFailed` to `job-description.events` queue
+6. **API Wolverine handler** (`JobParsingCompletedHandler` / `JobParsingFailedHandler`):
+   - Receives event from queue
+   - Updates `ParseJob` status in DB (Done with parsedData, or Failed with error)
+7. Client polls `GET /api/jobs/parse/{parseId}/status` until DONE or FAILED
 
 ## Inter-module Interactions
 
-**None.** Only external dependency is OpenAI API.
+**None.** Only external dependency is OpenAI API via the Worker process.
 
 ## Diagrams
 
@@ -125,10 +125,12 @@ sequenceDiagram
     participant API as Minimal API
     participant V as ValidationDecorator
     participant L as LoggingDecorator
-    participant H as TriggerHandler
-    participant DB as JobScraperDbContext
-    participant HF as Hangfire
+    participant H as ParseJobDescription Handler
+    participant DB as JobDescriptionsDbContext
+    participant WBus as Wolverine Bus
+    participant W as JobDescriptions Worker
     participant AI as OpenAI API
+    participant WH as Wolverine Handler
 
     Note over C,AI: STEP 1 — Trigger Parse
     C->>MW: POST /api/jobs/parse + Bearer
@@ -142,17 +144,23 @@ sequenceDiagram
     V->>L: HandleAsync(request)
     L->>H: HandleAsync(request)
     H->>DB: Create ParseJob type=ManualText status=Queued
-    H->>HF: Enqueue background job
+    H->>WBus: PublishAsync(ParseJobText)
     H-->>C: 202 { parseId }
 
-    Note over C,AI: STEP 2 — Background Processing
-    HF->>DB: Update status=Processing
-    HF->>AI: Send rawText for structured extraction
-    Note over AI: Polly retry: 3 attempts,<br/>exponential backoff
-    AI-->>HF: structured JSON
-    HF->>DB: Update status=Done + parsedData
+    Note over C,AI: STEP 2 — Worker Processing
+    W->>WBus: Listen on job-description.commands
+    WBus->>W: Deliver ParseJobText message
+    W->>AI: Send rawText for structured extraction
+    AI-->>W: structured JSON
+    W->>WBus: PublishAsync(JobParsingCompleted)
 
-    Note over C,AI: STEP 3 — Poll Status
+    Note over C,AI: STEP 3 — Event Handler Updates DB
+    API->>WBus: Listen on job-description.events
+    WBus->>WH: Deliver JobParsingCompleted
+    WH->>DB: Find ParseJob, update status=Done + parsedData
+    WH->>DB: SaveChangesAsync()
+
+    Note over C,AI: STEP 4 — Poll Status
     loop Polling every 2s
         C->>API: GET /api/jobs/parse/{parseId}/status + Bearer
         API->>DB: Get ParseJob by id
@@ -170,12 +178,13 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Hangfire picks up job] --> B[Update status → Processing]
-    B --> C[Send rawText to OpenAI<br/>Polly: 3 retries]
-    C --> D{OpenAI success?}
-    D -->|No| E[Update status → Failed<br/>error: AI error message]
-    D -->|Yes| F[Map to ParsedJob structure]
-    F --> G[Update status → Done + parsedData]
+    A[Wolverine delivers ParseJobText] --> B[Call OpenAI for structured extraction]
+    B --> C{OpenAI success?}
+    C -->|No| D[Publish JobParsingFailed<br/>with error message]
+    C -->|Yes| E[Map to ParsedJobData]
+    E --> F[Publish JobParsingCompleted<br/>with parsed data]
+    F --> G[Wolverine delivers event to API]
+    G --> H[API updates ParseJob status in DB]
 ```
 
 ## Error Codes
@@ -188,19 +197,20 @@ flowchart TD
 
 ## Database Table
 
-### parse_jobs (in jobscraper schema)
+### parse_jobs (in jobdescriptions schema)
 
 ```
 parse_jobs
 ├── id (guid, PK)
 ├── user_id (guid)
 ├── type (enum: ManualText, UrlScrape)
-├── raw_input (text — rawText or URL)
+├── raw_text (text — rawText or URL)
 ├── status (enum: Queued, Processing, Done, Failed)
 ├── parsed_data (JSONB, null until Done)
 ├── error (string, null unless Failed)
+├── source_url (uri, nullable)
 ├── created_at (datetime)
 ├── completed_at (datetime, null until Done/Failed)
 ```
 
-Shared with ScrapeJobUrl — differentiated by `type` field.
+Shared with ScrapeJobDescription — differentiated by `type` field.

@@ -74,13 +74,13 @@ Authorization: Bearer {accessToken}
 
 ## Inter-module Interactions
 
-**None.** Self-contained within JobScraper module.
+**None.** Self-contained within JobDescriptions module.
 
-Other modules access job data via **gRPC** (`JobScraperService.GetJobById`).
+Other modules access job data via **gRPC** (`JobDescriptionsService.GetJobById`).
 
 ```mermaid
 graph LR
-    subgraph "JobScraper Module"
+    subgraph "JobDescriptions Module"
         A[GetJob HTTP Endpoint]
     end
 
@@ -104,7 +104,7 @@ sequenceDiagram
     participant L as LoggingDecorator
     participant H as Handler
     participant US as ICurrentUserService
-    participant DB as JobScraperDbContext
+    participant DB as JobDescriptionsDbContext
 
     C->>MW: GET /api/jobs/{id} + Bearer
     MW->>MW: Validate JWT

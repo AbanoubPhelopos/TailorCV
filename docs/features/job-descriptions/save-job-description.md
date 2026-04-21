@@ -77,7 +77,7 @@ Content-Type: application/json
 | RequiredSkills | Optional, array of strings, max 30 items |
 | Responsibilities | Optional, array of strings, max 20 items |
 | Qualifications | Optional, array of strings, max 20 items |
-| SeniorityLevel | Optional, max 50 chars |
+| SeniorityLevel | Optional, enum: Junior, Mid, Senior, Lead, Principal, Staff, Director |
 | SourceUrl | Optional, valid URL, max 2048 chars |
 | Label | Optional, max 100 chars |
 | RawText | Optional, max 10000 chars |
@@ -88,6 +88,7 @@ Content-Type: application/json
 - `sourceUrl` is null for manual text input, populated for URL scrape
 - `label` is optional user tag for organization
 - `rawText` optionally stores the original text for reference
+- No event published on save (unlike parse — save is synchronous)
 
 ## Flow
 
@@ -97,26 +98,15 @@ Content-Type: application/json
 4. **Handler** executes:
    - Get `UserId` from `ICurrentUserService`
    - Create `JobDescription` entity with all fields
-   - Save to `jobscraper.job_descriptions`
-   - Publish `JobDescriptionSavedEvent` via Wolverine
+   - Save to `jobdescriptions.job_descriptions`
    - Return created job description
 5. **LoggingDecorator** logs result
 
 ## Inter-module Interactions
 
-### Async Event Published
+**None.** Self-contained within JobDescriptions module. Save is synchronous (no messaging).
 
-```csharp
-public record JobDescriptionSavedEvent(Guid JobId, Guid UserId, string Title, DateTime SavedAt);
-```
-
-Published via **Wolverine + RabbitMQ** after successful save.
-
-### Subscribers
-
-| Module | Reaction |
-|--------|----------|
-| Dashboard | Update recent activity |
+Other modules access job data via **gRPC** (`JobDescriptionsService.GetJobById`).
 
 ## Diagrams
 
@@ -131,8 +121,7 @@ sequenceDiagram
     participant L as LoggingDecorator
     participant H as Handler
     participant US as ICurrentUserService
-    participant DB as JobScraperDbContext
-    participant W as Wolverine Bus
+    participant DB as JobDescriptionsDbContext
 
     C->>MW: POST /api/jobs + Bearer
     MW->>MW: Validate JWT
@@ -148,7 +137,6 @@ sequenceDiagram
     H->>H: Create JobDescription entity
     H->>DB: JobDescriptions.Add(entity)
     H->>DB: SaveChangesAsync()
-    H->>W: PublishAsync(JobDescriptionSavedEvent)
     H-->>L: Result.Success(JobResponse)
     L-->>C: 201 Created
 ```
@@ -163,8 +151,7 @@ flowchart TD
     D -->|Invalid| E[Return 400]
     D -->|Valid| F[Create JobDescription entity]
     F --> G[Save to DB]
-    G --> H[Publish JobDescriptionSavedEvent]
-    H --> I[Return 201]
+    G --> H[Return 201]
 ```
 
 ## Error Codes
@@ -176,7 +163,7 @@ flowchart TD
 
 ## Database Table
 
-### job_descriptions (in jobscraper schema)
+### job_descriptions (in jobdescriptions schema)
 
 ```
 job_descriptions
@@ -189,7 +176,7 @@ job_descriptions
 ├── responsibilities (JSONB)
 ├── qualifications (JSONB)
 ├── seniority_level (string, nullable)
-├── source_url (string, nullable)
+├── source_url (uri, nullable)
 ├── label (string, nullable)
 ├── raw_text (text, nullable)
 ├── created_at (datetime)
