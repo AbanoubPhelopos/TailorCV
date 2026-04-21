@@ -254,7 +254,7 @@ TailorCV/
 │       ├── full.md
 │       ├── identity/ (register, login, refresh-token, logout)
 │       ├── profile/ (10 feature docs)
-│   └── jobdescriptions/ (6 feature docs)
+│   └── job-descriptions/ (6 feature docs)
 │
 ├── tests/                                       # NOT YET CREATED
 └── frontend/                                    # NOT YET CREATED
