@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.IdentityModel.Tokens;
@@ -9,14 +10,37 @@ using TailorCV.Api.OpenApi;
 using TailorCV.Api.Services;
 using TailorCV.Identity;
 using TailorCV.Identity.Infrastructure;
-using TailorCV.JobScraper;
+using TailorCV.JobDescriptions;
 using TailorCV.Shared.Interfaces;
+using Wolverine;
+using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Host.UseSerilog((context, config) =>
 {
     config.ReadFrom.Configuration(context.Configuration);
+});
+
+builder.Host.UseWolverine(opts =>
+{
+    opts.UseRabbitMq(builder.Configuration["RabbitMQ:ConnectionString"]!)
+        .AutoProvision();
+
+    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ScrapeJobUrl>()
+        .ToRabbitQueue("job-description.commands");
+    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ParseJobText>()
+        .ToRabbitQueue("job-description.commands");
+
+    opts.ListenToRabbitQueue("job-description.events");
+
+    opts.ApplicationAssembly = typeof(TailorCV.JobDescriptions.ModuleExtensions).Assembly;
+    opts.ServiceName = "TailorCV.Api";
 });
 
 builder.Services.AddHealthChecks();
@@ -40,7 +64,7 @@ builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
 builder.Services.AddIdentityModule(builder.Configuration);
-builder.Services.AddJobScraperModule(builder.Configuration);
+builder.Services.AddJobDescriptionsModule(builder.Configuration);
 
 JwtSettings jwtSettings = new();
 builder.Configuration.GetSection("JwtSettings").Bind(jwtSettings);
@@ -68,7 +92,7 @@ builder.Services.AddAuthorization();
 WebApplication app = builder.Build();
 
 await app.MigrateIdentityModuleAsync();
-await app.MigrateJobScraperModuleAsync();
+await app.MigrateJobDescriptionsModuleAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -88,7 +112,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
-app.MapJobScraperEndpoints();
+app.MapJobDescriptionsEndpoints();
 
 app.MapGet("/", () => "TailorCV API");
 

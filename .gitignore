@@ -404,3 +404,6 @@ FodyWeavers.xsd
 
 # Implementation plans
 plans/
+
+# Private scripts and test files
+private/

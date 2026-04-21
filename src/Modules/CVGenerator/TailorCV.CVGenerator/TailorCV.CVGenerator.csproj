@@ -1,10 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\TailorCV.Shared\TailorCV.Shared.csproj" />
     <ProjectReference Include="..\TailorCV.CVGenerator.Contracts\TailorCV.CVGenerator.Contracts.csproj" />
     <ProjectReference Include="..\..\Profile\TailorCV.Profile.Contracts\TailorCV.Profile.Contracts.csproj" />
-    <ProjectReference Include="..\..\JobScraper\TailorCV.JobScraper.Contracts\TailorCV.JobScraper.Contracts.csproj" />
+    <ProjectReference Include="..\..\JobDescriptions\TailorCV.JobDescriptions.Contracts\TailorCV.JobDescriptions.Contracts.csproj" />
     <ProjectReference Include="..\..\Templates\TailorCV.Templates.Contracts\TailorCV.Templates.Contracts.csproj" />
   </ItemGroup>
 

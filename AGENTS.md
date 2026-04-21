@@ -24,8 +24,8 @@ Dev port: **5062**. Auto-migrates on startup in Development.
 - **Modular monolith** — vertical slice, one `.cs` file per feature (static class with nested `MapEndpoint`, `Request`, `Validator`, `Handler`, `Response`)
 - **No repository pattern** — handlers use `DbContext` directly
 - **No clean architecture layers** within a module
-- **No in-process interface calls** between modules — async via Wolverine (planned) or gRPC (planned)
-- **Separate PostgreSQL schema per module** (`identity`, `profile`, `jobscraper`, `templates`, `cvgenerator`)
+- **No in-process interface calls** between modules — async via Wolverine + RabbitMQ (API module) or gRPC (planned)
+- **Separate PostgreSQL schema per module** (`identity`, `profile`, `jobdescription`, `templates`, `cvgenerator`)
 
 ## Critical Code Style Rules
 
@@ -110,6 +110,67 @@ Uses **PBKDF2** (`Rfc2898DeriveBytes.Pbkdf2`, HMAC-SHA256, 100k iterations). NOT
 ### Pagination
 
 `OffsetPagedList<T>` with `{ items, pagingInfo: { hasNext, hasPrevious, page, pageSize, total } }`. `page` and `pageSize` always required.
+
+## JobDescription Module Architecture
+
+The JobDescription module is split into two projects:
+
+- **`TailorCV.JobDescription`** — API module (HTTP endpoints, domain, DB)
+- **`TailorCV.JobDescription.Worker`** — Background worker (Wolverine host, Playwright scraping, OpenAI parsing)
+
+### Messaging pattern (Wolverine + RabbitMQ)
+
+```
+API                                          Worker
+ │                                              │
+ │  Publish ScrapeJobUrl ──→ queue ──────────→ │
+ │  Publish ParseJobText ──→ queue ──────────→ │
+ │                                              │
+ │  ←─────────── JobParsingCompleted ──────────│
+ │  ←─────────── JobParsingFailed ─────────────│
+ │                                              │
+```
+
+- API publishes commands to `job-description.commands` queue
+- Worker listens on `job-description.commands` queue (max 3 concurrent)
+- Worker publishes events to `job-description.events` queue
+- API listens on `job-description.events` queue and updates database
+
+### Worker project structure
+
+```
+TailorCV.JobDescription.Worker/
+├── Program.cs                    # Host.CreateApplicationBuilder + Wolverine
+├── ModuleExtensions.cs           # AddJobDescriptionWorkerServices
+├── Handlers/
+│   ├── ScrapeJobUrlHandler.cs
+│   └── ParseJobTextHandler.cs
+└── Infrastructure/
+    ├── AI/
+    │   ├── IJobDescriptionParserService.cs
+    │   ├── OpenAiJobParserService.cs        # Real OpenAI with JSON schema
+    │   └── OpenAiOptions.cs                  # ApiKey, Endpoint, ModelId, MaxTokens
+    ├── Scraping/
+    │   ├── IPlaywrightScrapingService.cs
+    │   ├── PlaywrightScrapingService.cs      # Real Playwright + stealth
+    │   └── PlaywrightOptions.cs              # MaxConcurrency, RequestTimeoutMs
+    └── RateLimiting/
+        ├── DomainRateLimiter.cs              # Per-domain TokenBucketRateLimiter
+        └── DomainExtractor.cs                # Extract domain from URI
+```
+
+### OpenAI Configuration
+
+```json
+{
+  "OpenAI": {
+    "ApiKey": "",
+    "Endpoint": "",        // Optional — for OpenRouter/custom endpoints
+    "ModelId": "gpt-4o",
+    "MaxTokens": 2048
+  }
+}
+```
 
 ## EF Core
 

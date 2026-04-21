@@ -13,9 +13,10 @@
     <Project Path="src/Modules/Identity/TailorCV.Identity.Contracts/TailorCV.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/TailorCV.Identity/TailorCV.Identity.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/JobScraper/">
-    <Project Path="src/Modules/JobScraper/TailorCV.JobScraper.Contracts/TailorCV.JobScraper.Contracts.csproj" />
-    <Project Path="src/Modules/JobScraper/TailorCV.JobScraper/TailorCV.JobScraper.csproj" />
+  <Folder Name="/src/Modules/JobDescriptions/">
+    <Project Path="src/Modules/JobDescriptions/TailorCV.JobDescriptions.Contracts/TailorCV.JobDescriptions.Contracts.csproj" />
+    <Project Path="src/Modules/JobDescriptions/TailorCV.JobDescriptions/TailorCV.JobDescriptions.csproj" />
+    <Project Path="src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker/TailorCV.JobDescriptions.Worker.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Profile/">
     <Project Path="src/Modules/Profile/TailorCV.Profile.Contracts/TailorCV.Profile.Contracts.csproj" />

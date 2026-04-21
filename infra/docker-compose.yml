@@ -1,20 +1,31 @@
 services:
+  scraper-worker:
+    build:
+      context: ..
+      dockerfile: src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
+      - OpenAI__ApiKey=${OPENAI_API_KEY}
+      - Playwright__MaxConcurrency=3
+      - Playwright__RequestTimeoutMs=30000
+      - Serilog__MinimumLevel__Default=Information
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tailorcv-network
+
   api:
     build:
       context: ..
-      dockerfile: infra/Dockerfile
+      dockerfile: src/TailorCV.Api/Dockerfile
     ports:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultHost=postgres
-      - ConnectionStrings__DefaultPort=5432
-      - ConnectionStrings__DefaultDatabase=tailorcv
-      - ConnectionStrings__DefaultUsername=tailorcv
-      - ConnectionStrings__DefaultPassword=tailorcv_secret
-      - RabbitMQ__Host=rabbitmq
-      - RabbitMQ__Username=guest
-      - RabbitMQ__Password=guest
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=tailorcv;Username=tailorcv;Password=tailorcv_secret
+      - RabbitMQ__ConnectionString=amqp://guest:guest@rabbitmq:5672
       - Redis__Configuration=redis:6379
       - S3__Endpoint=http://rustfs:9000
       - S3__AccessKey=tailorcv_minio
