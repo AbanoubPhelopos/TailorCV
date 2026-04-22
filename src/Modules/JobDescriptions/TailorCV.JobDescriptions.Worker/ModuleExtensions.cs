@@ -14,8 +14,15 @@ public static class ModuleExtensions
         this IServiceCollection services,
         IConfiguration config)
     {
-        services.Configure<OpenAiOptions>(config.GetSection("OpenAI"));
-        services.Configure<PlaywrightOptions>(config.GetSection("Playwright"));
+        services.AddOptions<OpenAiOptions>()
+            .Bind(config.GetSection(OpenAiOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<PlaywrightOptions>()
+            .Bind(config.GetSection(PlaywrightOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         services.AddSingleton<DomainRateLimiter>();
         services.AddSingleton<IPlaywrightScrapingService, PlaywrightScrapingService>();

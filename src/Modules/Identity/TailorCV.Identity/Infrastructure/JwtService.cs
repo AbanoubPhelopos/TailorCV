@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -10,10 +11,23 @@ namespace TailorCV.Identity.Infrastructure;
 
 public class JwtSettings
 {
+    public const string SectionName = "JwtSettings";
+
+    [Required]
+    [MinLength(32)]
     public string Secret { get; set; } = string.Empty;
+
+    [Required]
     public string Issuer { get; set; } = string.Empty;
+
+    [Required]
     public string Audience { get; set; } = string.Empty;
+
+    [Range(1, 10080)]
     public int AccessTokenExpiryMinutes { get; set; } = 15;
+
+    [Range(1, 365)]
+    public int RefreshTokenExpiryDays { get; set; } = 7;
 }
 
 public interface IJwtService

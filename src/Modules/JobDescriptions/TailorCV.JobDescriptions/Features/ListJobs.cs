@@ -61,8 +61,8 @@ public static class ListJobs
         app.MapGet("/api/jobs", async (
             int page,
             int pageSize,
-            string sortBy,
-            string sortOrder,
+            string? sortBy,
+            string? sortOrder,
             IQueryHandler<Request, OffsetPagedList<ResponseItem>> handler,
             CancellationToken ct) =>
         {

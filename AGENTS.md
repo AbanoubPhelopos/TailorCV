@@ -12,12 +12,50 @@ Must produce **0 errors, 0 warnings**. `TreatWarningsAsErrors` + `EnforceCodeSty
 
 ## Run
 
+### Docker Compose (full stack)
+
 ```bash
-docker compose -f infra/docker-compose.yml up -d postgres
+# Start infra (postgres, rabbitmq, redis)
+docker compose -f infra/docker-compose.yml up -d postgres rabbitmq redis
+
+# Build and start API + Worker
+docker compose -f infra/docker-compose.yml up -d --build
+```
+
+API: **http://localhost:8080** | Worker: runs as container | Dev port: **8080**
+
+### Local Development (dotnet run)
+
+```bash
+# 1. Start infra via Docker
+docker compose -f infra/docker-compose.yml up -d postgres rabbitmq redis
+
+# 2. Set up secrets (once)
+dotnet user-secrets init --project src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker
+dotnet user-secrets set "OpenAI:ApiKey" "<your-openai-or-openrouter-key>" --project src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker
+
+# 3. Run API locally
 dotnet run --project src/TailorCV.Api
 ```
 
-Dev port: **5062**. Auto-migrates on startup in Development.
+Auto-migrates on startup in Development. API: **http://localhost:8080**
+
+## Local Development Config
+
+### `appsettings.Development.json` (committed, no secrets)
+
+Non-secret config lives in committed `appsettings.Development.json` files:
+- `src/TailorCV.Api/appsettings.Development.json` — API connections, JWT, Redis, RustFS
+- `src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker/appsettings.Development.json` — OpenAI endpoint, model, Playwright settings
+
+### User Secrets (local only, never committed)
+
+Only **OpenAI API key** is a secret. Set it once:
+
+```bash
+dotnet user-secrets init --project src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker
+dotnet user-secrets set "OpenAI:ApiKey" "<your-openai-or-openrouter-key>" --project src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker
+```
 
 ## Architecture Rules
 
@@ -111,12 +149,12 @@ Uses **PBKDF2** (`Rfc2898DeriveBytes.Pbkdf2`, HMAC-SHA256, 100k iterations). NOT
 
 `OffsetPagedList<T>` with `{ items, pagingInfo: { hasNext, hasPrevious, page, pageSize, total } }`. `page` and `pageSize` always required.
 
-## JobDescription Module Architecture
+## JobDescriptions Module Architecture
 
-The JobDescription module is split into two projects:
+The JobDescriptions module is split into two projects:
 
-- **`TailorCV.JobDescription`** — API module (HTTP endpoints, domain, DB)
-- **`TailorCV.JobDescription.Worker`** — Background worker (Wolverine host, Playwright scraping, OpenAI parsing)
+- **`TailorCV.JobDescriptions`** — API module (HTTP endpoints, domain, DB)
+- **`TailorCV.JobDescriptions.Worker`** — Background worker (Wolverine host, Playwright scraping, OpenAI parsing)
 
 ### Messaging pattern (Wolverine + RabbitMQ)
 
@@ -139,7 +177,7 @@ API                                          Worker
 ### Worker project structure
 
 ```
-TailorCV.JobDescription.Worker/
+TailorCV.JobDescriptions.Worker/
 ├── Program.cs                    # Host.CreateApplicationBuilder + Wolverine
 ├── ModuleExtensions.cs           # AddJobDescriptionWorkerServices
 ├── Handlers/
@@ -159,13 +197,17 @@ TailorCV.JobDescription.Worker/
         └── DomainExtractor.cs                # Extract domain from URI
 ```
 
+### Worker Docker image
+
+Uses `playwright/dotnet` base image with .NET 10 runtime installed on top. Playwright Chromium is pre-bundled. Set `PLAYWRIGHT_SKIP_INSTALL=true` env var in production Docker runs.
+
 ### OpenAI Configuration
 
 ```json
 {
   "OpenAI": {
-    "ApiKey": "",
-    "Endpoint": "",        // Optional — for OpenRouter/custom endpoints
+    "ApiKey": "",           // User Secrets (never committed)
+    "Endpoint": "https://openrouter.ai/api/v1",
     "ModelId": "gpt-4o",
     "MaxTokens": 2048
   }
@@ -210,3 +252,4 @@ Use `#pragma warning disable/restore` per-file when needed:
 - Do NOT modify generated migration files
 - Do NOT commit `obj/` or `bin/` directories
 - Do NOT add code comments unless explicitly asked
+- Do NOT commit secrets to `appsettings.json` or `appsettings.Development.json` — use User Secrets for secrets (OpenAI API key), non-secret config goes in `appsettings.Development.json`

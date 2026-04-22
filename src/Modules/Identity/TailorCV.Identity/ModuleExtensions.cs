@@ -41,7 +41,10 @@ public static class ModuleExtensions
         TryDecorate(services, typeof(IQueryHandler<,>), typeof(QueryValidationDecorator<,>));
         TryDecorate(services, typeof(IQueryHandler<,>), typeof(QueryLoggingDecorator<,>));
 
-        services.Configure<JwtSettings>(config.GetSection("JwtSettings"));
+        services.AddOptions<JwtSettings>()
+            .Bind(config.GetSection(JwtSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
         services.AddSingleton<IJwtService, JwtService>();
 
         return services;
