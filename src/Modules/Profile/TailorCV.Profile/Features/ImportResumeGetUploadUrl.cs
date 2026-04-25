@@ -1,12 +1,7 @@
-#pragma warning disable CA1054, S1075
-
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using TailorCV.Profile.Infrastructure;
 using TailorCV.Shared.CQRS;
 using TailorCV.Shared.Interfaces;
 using TailorCV.Shared.Results;
@@ -17,7 +12,7 @@ public static class ImportResumeGetUploadUrl
 {
     public record Request(string FileName, string ContentType);
 
-    public record Response(string Key, string Url, Dictionary<string, string> Fields);
+    public record UploadUrlResponse(string Key, string Endpoint, Dictionary<string, string> Fields);
 
     public class Validator : AbstractValidator<Request>
     {
@@ -38,23 +33,25 @@ public static class ImportResumeGetUploadUrl
     }
 
     public class Handler(
-        IConfiguration configuration,
-        ICurrentUserService currentUserService) : ICommandHandler<Request, Response>
+        IBlobStorage blobStorage,
+        ICurrentUserService currentUserService) : ICommandHandler<Request, UploadUrlResponse>
     {
-        public Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<UploadUrlResponse>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
             string extension = Path.GetExtension(command.FileName);
             string key = $"resumes/{userId}/{Guid.CreateVersion7()}{extension}";
 
-            string bucketUrl = configuration["Storage:BucketUrl"] ?? "http://localhost:9000/tailorcv-uploads";
+            PresignedPostResponse presigned = await blobStorage.GeneratePresignedPostAsync(
+                key,
+                command.ContentType,
+                maxSizeBytes: 10 * 1024 * 1024,
+                expiry: TimeSpan.FromMinutes(15),
+                ct);
 
-            Dictionary<string, string> fields = new()
-            {
-                ["key"] = key,
-            };
+            Dictionary<string, string> fields = new(presigned.Fields);
 
-            return Task.FromResult(Result<Response>.Success(new Response(key, bucketUrl, fields)));
+            return Result<UploadUrlResponse>.Success(new UploadUrlResponse(key, presigned.Endpoint, fields));
         }
     }
 
@@ -62,10 +59,10 @@ public static class ImportResumeGetUploadUrl
     {
         app.MapPost("/api/profiles/me/import/upload-url", async (
             Request request,
-            ICommandHandler<Request, Response> handler,
+            ICommandHandler<Request, UploadUrlResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(request, ct);
+            Result<UploadUrlResponse> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();
@@ -74,8 +71,6 @@ public static class ImportResumeGetUploadUrl
         .WithTags("Profile")
         .WithName("ImportResumeGetUploadUrl")
         .WithSummary("Get presigned upload URL")
-        .WithDescription("Returns a presigned S3 URL for uploading a resume file.");
+        .WithDescription("Returns a presigned S3 POST URL and fields for uploading a resume file.");
     }
 }
-
-#pragma warning restore CA1054, S1075

@@ -14,13 +14,13 @@ public static class GetCompleteness
 {
     public record CompletenessCheck(string Field, bool Passed, string? Suggestion, int? Count = null);
 
-    public record Response(int Percentage, bool HasProfile, List<CompletenessCheck> Checks);
+    public record CompletenessResponse(int Percentage, bool HasProfile, List<CompletenessCheck> Checks);
 
     public class Handler(
         ProfileDbContext dbContext,
-        ICurrentUserService currentUserService) : IQueryHandler<object, Response>
+        ICurrentUserService currentUserService) : IQueryHandler<object, CompletenessResponse>
     {
-        public async Task<Result<Response>> HandleAsync(object query, CancellationToken ct)
+        public async Task<Result<CompletenessResponse>> HandleAsync(object query, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
@@ -35,7 +35,7 @@ public static class GetCompleteness
 
             if (profile is null)
             {
-                return Result<Response>.Failure(ProfileErrors.ProfileNotFound);
+                return Result<CompletenessResponse>.Failure(ProfileErrors.ProfileNotFound);
             }
 
             List<CompletenessCheck> checks =
@@ -71,19 +71,17 @@ public static class GetCompleteness
                     profile.Languages.Count != 0 ? null : "Add languages you speak", profile.Languages.Count),
             ];
 
-            int percentage = profile.CalculateCompleteness();
-
-            return Result<Response>.Success(new Response(percentage, true, checks));
+            return Result<CompletenessResponse>.Success(new CompletenessResponse(profile.Completeness, true, checks));
         }
     }
 
     public static void MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet("/api/profiles/me/completeness", async (
-            IQueryHandler<object, Response> handler,
+            IQueryHandler<object, CompletenessResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(new object(), ct);
+            Result<CompletenessResponse> result = await handler.HandleAsync(new object(), ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();

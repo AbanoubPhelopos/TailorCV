@@ -1,5 +1,3 @@
-#pragma warning disable CA1054
-
 using TailorCV.Shared.Primitives;
 using TailorCV.Shared.Results;
 
@@ -31,6 +29,66 @@ public class Profile : Entity
 
     private Profile() { }
 
+    public int Completeness
+    {
+        get
+        {
+            int score = 0;
+
+            if (!string.IsNullOrWhiteSpace(Headline))
+            {
+                score += 10;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Summary) && Summary.Length >= 50)
+            {
+                score += 10;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Phone))
+            {
+                score += 5;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Location))
+            {
+                score += 5;
+            }
+
+            if (Experiences.Count != 0)
+            {
+                score += 20;
+            }
+
+            if (Projects.Count != 0)
+            {
+                score += 10;
+            }
+
+            if (Skills.Count != 0)
+            {
+                score += 15;
+            }
+
+            if (Education.Count != 0)
+            {
+                score += 10;
+            }
+
+            if (Certifications.Count != 0)
+            {
+                score += 5;
+            }
+
+            if (Languages.Count != 0)
+            {
+                score += 10;
+            }
+
+            return score;
+        }
+    }
+
     public static Result<Profile> Create(
         Guid userId,
         string headline,
@@ -38,8 +96,8 @@ public class Profile : Entity
         string phone,
         string location,
         string website,
-        string linkedinUrl,
-        string githubUrl,
+        string linkedin,
+        string github,
         DateTimeOffset now)
     {
         if (userId == Guid.Empty)
@@ -55,8 +113,8 @@ public class Profile : Entity
             Phone = phone ?? string.Empty,
             Location = location ?? string.Empty,
             Website = website ?? string.Empty,
-            LinkedinUrl = linkedinUrl ?? string.Empty,
-            GithubUrl = githubUrl ?? string.Empty,
+            LinkedinUrl = linkedin ?? string.Empty,
+            GithubUrl = github ?? string.Empty,
             IsShared = false,
             CreatedAt = now,
             UpdatedAt = now,
@@ -69,8 +127,8 @@ public class Profile : Entity
         string phone,
         string location,
         string website,
-        string linkedinUrl,
-        string githubUrl,
+        string linkedin,
+        string github,
         DateTimeOffset now)
     {
         Headline = headline ?? string.Empty;
@@ -78,8 +136,8 @@ public class Profile : Entity
         Phone = phone ?? string.Empty;
         Location = location ?? string.Empty;
         Website = website ?? string.Empty;
-        LinkedinUrl = linkedinUrl ?? string.Empty;
-        GithubUrl = githubUrl ?? string.Empty;
+        LinkedinUrl = linkedin ?? string.Empty;
+        GithubUrl = github ?? string.Empty;
         UpdatedAt = now;
     }
 
@@ -93,63 +151,4 @@ public class Profile : Entity
     {
         IsShared = false;
     }
-
-    public int CalculateCompleteness()
-    {
-        int score = 0;
-
-        if (!string.IsNullOrWhiteSpace(Headline))
-        {
-            score += 10;
-        }
-
-        if (!string.IsNullOrWhiteSpace(Summary) && Summary.Length >= 50)
-        {
-            score += 10;
-        }
-
-        if (!string.IsNullOrWhiteSpace(Phone))
-        {
-            score += 5;
-        }
-
-        if (!string.IsNullOrWhiteSpace(Location))
-        {
-            score += 5;
-        }
-
-        if (Experiences.Count != 0)
-        {
-            score += 20;
-        }
-
-        if (Projects.Count != 0)
-        {
-            score += 10;
-        }
-
-        if (Skills.Count != 0)
-        {
-            score += 15;
-        }
-
-        if (Education.Count != 0)
-        {
-            score += 10;
-        }
-
-        if (Certifications.Count != 0)
-        {
-            score += 5;
-        }
-
-        if (Languages.Count != 0)
-        {
-            score += 10;
-        }
-
-        return score;
-    }
 }
-
-#pragma warning restore CA1054

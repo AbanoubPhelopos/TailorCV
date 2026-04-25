@@ -1,11 +1,9 @@
-#pragma warning disable CA1054
-
-using System.Buffers.Text;
 using System.Security.Cryptography;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using TailorCV.Profile.Domain;
 using TailorCV.Profile.Infrastructure;
@@ -19,7 +17,7 @@ public static class ShareProfile
 {
     public record Request(bool Enabled);
 
-    public record Response(bool IsShared, string? ShareUrl, string? ShareId);
+    public record ShareResponse(bool IsShared, string? ShareLink, string? ShareId);
 
     public class Validator : AbstractValidator<Request>
     {
@@ -32,9 +30,9 @@ public static class ShareProfile
 
     public class Handler(
         ProfileDbContext dbContext,
-        ICurrentUserService currentUserService) : ICommandHandler<Request, Response>
+        ICurrentUserService currentUserService) : ICommandHandler<Request, ShareResponse>
     {
-        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<ShareResponse>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
@@ -43,7 +41,7 @@ public static class ShareProfile
 
             if (profile is null)
             {
-                return Result<Response>.Failure(ProfileErrors.ProfileNotFound);
+                return Result<ShareResponse>.Failure(ProfileErrors.ProfileNotFound);
             }
 
             if (command.Enabled)
@@ -58,7 +56,7 @@ public static class ShareProfile
 
             await dbContext.SaveChangesAsync(ct);
 
-            return Result<Response>.Success(new Response(
+            return Result<ShareResponse>.Success(new ShareResponse(
                 profile.IsShared,
                 profile.IsShared ? $"/api/profiles/shared/{profile.ShareId}" : null,
                 profile.IsShared ? profile.ShareId : null));
@@ -67,7 +65,7 @@ public static class ShareProfile
         private static string GenerateShareId()
         {
             byte[] bytes = RandomNumberGenerator.GetBytes(15);
-            return Microsoft.AspNetCore.WebUtilities.Base64UrlTextEncoder.Encode(bytes);
+            return Base64UrlTextEncoder.Encode(bytes);
         }
     }
 
@@ -75,10 +73,10 @@ public static class ShareProfile
     {
         app.MapPost("/api/profiles/me/share", async (
             Request request,
-            ICommandHandler<Request, Response> handler,
+            ICommandHandler<Request, ShareResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(request, ct);
+            Result<ShareResponse> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();
@@ -90,5 +88,3 @@ public static class ShareProfile
         .WithDescription("Enables or disables profile sharing. Generates a unique share URL on first enable.");
     }
 }
-
-#pragma warning restore CA1054
