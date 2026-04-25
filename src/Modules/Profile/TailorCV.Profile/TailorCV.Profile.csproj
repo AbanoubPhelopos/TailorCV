@@ -7,16 +7,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-    <PackageReference Include="Grpc.Net.Client" />
-    <PackageReference Include="Hangfire.AspNetCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <PackageReference Include="OpenAI" />
-    <PackageReference Include="PdfPig" />
   </ItemGroup>
 
   <PropertyGroup>

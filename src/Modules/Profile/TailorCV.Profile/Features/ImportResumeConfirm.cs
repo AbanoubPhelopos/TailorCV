@@ -1,5 +1,3 @@
-#pragma warning disable CA1054, S6580, S1172
-
 using System.Globalization;
 using System.Text.Json;
 using FluentValidation;
@@ -18,7 +16,12 @@ namespace TailorCV.Profile.Features;
 
 public static class ImportResumeConfirm
 {
-    public record SectionImport(string SectionType, object Data);
+    private static readonly JsonSerializerOptions CaseInsensitiveOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
+
+    public record SectionImport(string SectionType, JsonElement Data);
 
     public record Request(
         string? Headline,
@@ -26,18 +29,18 @@ public static class ImportResumeConfirm
         string? Phone,
         string? Location,
         string? Website,
-        string? LinkedinUrl,
-        string? GithubUrl,
+        string? Linkedin,
+        string? Github,
         List<SectionImport> Sections);
 
-    public record Response(Guid ProfileId, int SectionsImported, int Completeness);
+    public record ImportConfirmResponse(Guid ProfileId, int SectionsImported, int Completeness);
 
     public class Handler(
         ProfileDbContext dbContext,
         ICurrentUserService currentUserService,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
+        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, ImportConfirmResponse>
     {
-        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<ImportConfirmResponse>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
             DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -62,13 +65,13 @@ public static class ImportResumeConfirm
                     command.Phone ?? string.Empty,
                     command.Location ?? string.Empty,
                     command.Website ?? string.Empty,
-                    command.LinkedinUrl ?? string.Empty,
-                    command.GithubUrl ?? string.Empty,
+                    command.Linkedin ?? string.Empty,
+                    command.Github ?? string.Empty,
                     now);
 
                 if (createResult.IsFailure)
                 {
-                    return Result<Response>.Failure(createResult.Error);
+                    return Result<ImportConfirmResponse>.Failure(createResult.Error);
                 }
 
                 profile = createResult.Value;
@@ -82,8 +85,8 @@ public static class ImportResumeConfirm
                     !string.IsNullOrWhiteSpace(command.Phone) ? command.Phone : profile.Phone,
                     !string.IsNullOrWhiteSpace(command.Location) ? command.Location : profile.Location,
                     !string.IsNullOrWhiteSpace(command.Website) ? command.Website : profile.Website,
-                    !string.IsNullOrWhiteSpace(command.LinkedinUrl) ? command.LinkedinUrl : profile.LinkedinUrl,
-                    !string.IsNullOrWhiteSpace(command.GithubUrl) ? command.GithubUrl : profile.GithubUrl,
+                    !string.IsNullOrWhiteSpace(command.Linkedin) ? command.Linkedin : profile.LinkedinUrl,
+                    !string.IsNullOrWhiteSpace(command.Github) ? command.Github : profile.GithubUrl,
                     now);
             }
 
@@ -104,9 +107,9 @@ public static class ImportResumeConfirm
 
                     maxOrder++;
                     Dictionary<string, object?> d = JsonSerializer.Deserialize<Dictionary<string, object?>>(
-                        JsonSerializer.Serialize(section.Data))!;
+                        section.Data.GetRawText())!;
 
-                    Result<(Guid SectionId, Error? Error)> sectionResult = sectionType switch
+                    Guid sectionId = sectionType switch
                     {
                         SectionType.Experience => CreateExperience(dbContext, profile.Id, d),
                         SectionType.Project => CreateProject(dbContext, profile.Id, d),
@@ -115,12 +118,12 @@ public static class ImportResumeConfirm
                         SectionType.Certification => CreateCertification(dbContext, profile.Id, d),
                         SectionType.Language => CreateLanguage(dbContext, profile.Id, d),
                         SectionType.Custom => CreateCustomSection(dbContext, profile.Id, d),
-                        _ => Result<(Guid, Error?)>.Failure(Error.Validation("Invalid section type")),
+                        _ => Guid.Empty,
                     };
 
-                    if (sectionResult.IsSuccess && sectionResult.Value.Error is null)
+                    if (sectionId != Guid.Empty)
                     {
-                        SectionOrder sectionOrder = SectionOrder.Create(profile.Id, sectionType, sectionResult.Value.SectionId, maxOrder);
+                        SectionOrder sectionOrder = SectionOrder.Create(profile.Id, sectionType, sectionId, maxOrder);
                         dbContext.SectionOrders.Add(sectionOrder);
                         imported++;
                     }
@@ -129,12 +132,10 @@ public static class ImportResumeConfirm
 
             await dbContext.SaveChangesAsync(ct);
 
-            int completeness = profile.CalculateCompleteness();
-
-            return Result<Response>.Success(new Response(profile.Id, imported, completeness));
+            return Result<ImportConfirmResponse>.Success(new ImportConfirmResponse(profile.Id, imported, profile.Completeness));
         }
 
-        private static Result<(Guid, Error?)> CreateExperience(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateExperience(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string company = d.TryGetValue("company", out object? c) ? c?.ToString() ?? string.Empty : string.Empty;
             string role = d.TryGetValue("role", out object? r) ? r?.ToString() ?? string.Empty : string.Empty;
@@ -146,53 +147,53 @@ public static class ImportResumeConfirm
             Result<Experience> result = Experience.Create(profileId, company, role, startDate, endDate, description, isCurrent);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Experiences.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateProject(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateProject(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string name = d.TryGetValue("name", out object? n) ? n?.ToString() ?? string.Empty : string.Empty;
             string description = d.TryGetValue("description", out object? desc) ? desc?.ToString() ?? string.Empty : string.Empty;
             string[] techStack = d.TryGetValue("techStack", out object? ts) && ts is not null
-                ? JsonSerializer.Deserialize<string[]>(ts.ToString()!) ?? Array.Empty<string>()
+                ? JsonSerializer.Deserialize<string[]>(ts.ToString()!, CaseInsensitiveOptions) ?? Array.Empty<string>()
                 : Array.Empty<string>();
             string role = d.TryGetValue("role", out object? r) ? r?.ToString() ?? string.Empty : string.Empty;
-            string url = d.TryGetValue("url", out object? u) ? u?.ToString() ?? string.Empty : string.Empty;
+            string projectLink = d.TryGetValue("url", out object? u) ? u?.ToString() ?? string.Empty : string.Empty;
             DateOnly? startDate = d.TryGetValue("startDate", out object? sd) && sd is not null && DateOnly.TryParse(sd.ToString(), CultureInfo.InvariantCulture, out DateOnly ps) ? ps : null;
             DateOnly? endDate = d.TryGetValue("endDate", out object? ed) && ed is not null && DateOnly.TryParse(ed.ToString(), CultureInfo.InvariantCulture, out DateOnly pe) ? pe : null;
 
-            Result<Project> result = Project.Create(profileId, name, description, techStack, role, url, startDate, endDate);
+            Result<Project> result = Project.Create(profileId, name, description, techStack, role, projectLink, startDate, endDate);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Projects.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateSkill(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateSkill(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string category = d.TryGetValue("category", out object? cat) ? cat?.ToString() ?? string.Empty : string.Empty;
             string[] items = d.TryGetValue("items", out object? it) && it is not null
-                ? JsonSerializer.Deserialize<string[]>(it.ToString()!) ?? Array.Empty<string>()
+                ? JsonSerializer.Deserialize<string[]>(it.ToString()!, CaseInsensitiveOptions) ?? Array.Empty<string>()
                 : Array.Empty<string>();
 
             Result<Skill> result = Skill.Create(profileId, category, items);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Skills.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateEducation(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateEducation(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string institution = d.TryGetValue("institution", out object? i) ? i?.ToString() ?? string.Empty : string.Empty;
             string degree = d.TryGetValue("degree", out object? deg) ? deg?.ToString() ?? string.Empty : string.Empty;
@@ -204,32 +205,32 @@ public static class ImportResumeConfirm
             Result<Education> result = Education.Create(profileId, institution, degree, field, startDate, endDate, gpa);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Education.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateCertification(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateCertification(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string name = d.TryGetValue("name", out object? n) ? n?.ToString() ?? string.Empty : string.Empty;
             string issuer = d.TryGetValue("issuer", out object? iss) ? iss?.ToString() ?? string.Empty : string.Empty;
             DateOnly date = d.TryGetValue("date", out object? dt) && DateOnly.TryParse(dt?.ToString(), CultureInfo.InvariantCulture, out DateOnly pd) ? pd : default;
             DateOnly? expiryDate = d.TryGetValue("expiryDate", out object? ed) && ed is not null && DateOnly.TryParse(ed.ToString(), CultureInfo.InvariantCulture, out DateOnly pe) ? pe : null;
-            string url = d.TryGetValue("url", out object? u) ? u?.ToString() ?? string.Empty : string.Empty;
+            string credentialLink = d.TryGetValue("url", out object? u) ? u?.ToString() ?? string.Empty : string.Empty;
 
-            Result<Certification> result = Certification.Create(profileId, name, issuer, date, expiryDate, url);
+            Result<Certification> result = Certification.Create(profileId, name, issuer, date, expiryDate, credentialLink);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Certifications.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateLanguage(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateLanguage(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string languageName = d.TryGetValue("languageName", out object? ln) ? ln?.ToString() ?? string.Empty : string.Empty;
             LanguageProficiency proficiency = d.TryGetValue("proficiency", out object? prof) && Enum.TryParse(prof?.ToString(), out LanguageProficiency p) ? p : LanguageProficiency.Beginner;
@@ -237,28 +238,28 @@ public static class ImportResumeConfirm
             Result<Language> result = Language.Create(profileId, languageName, proficiency);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.Languages.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
 
-        private static Result<(Guid, Error?)> CreateCustomSection(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
+        private static Guid CreateCustomSection(ProfileDbContext dbContext, Guid profileId, Dictionary<string, object?> d)
         {
             string title = d.TryGetValue("title", out object? t) ? t?.ToString() ?? string.Empty : string.Empty;
             CustomSectionItem[] items = d.TryGetValue("items", out object? it) && it is not null
-                ? JsonSerializer.Deserialize<CustomSectionItem[]>(it.ToString()!) ?? Array.Empty<CustomSectionItem>()
+                ? JsonSerializer.Deserialize<CustomSectionItem[]>(it.ToString()!, CaseInsensitiveOptions) ?? Array.Empty<CustomSectionItem>()
                 : Array.Empty<CustomSectionItem>();
 
             Result<CustomSection> result = CustomSection.Create(profileId, title, items);
             if (result.IsFailure)
             {
-                return Result<(Guid, Error?)>.Failure(result.Error);
+                return Guid.Empty;
             }
 
             dbContext.CustomSections.Add(result.Value);
-            return Result<(Guid, Error?)>.Success((result.Value.Id, null));
+            return result.Value.Id;
         }
     }
 
@@ -266,10 +267,10 @@ public static class ImportResumeConfirm
     {
         app.MapPost("/api/profiles/me/import/confirm", async (
             Request request,
-            ICommandHandler<Request, Response> handler,
+            ICommandHandler<Request, ImportConfirmResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(request, ct);
+            Result<ImportConfirmResponse> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();
@@ -281,5 +282,3 @@ public static class ImportResumeConfirm
         .WithDescription("Confirms the parsed resume data and saves it to the profile. Creates profile if it doesn't exist.");
     }
 }
-
-#pragma warning restore CA1054, S6580, S1172

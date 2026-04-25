@@ -1,5 +1,3 @@
-#pragma warning disable CA1054, CA1305, CA1869
-
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -18,9 +16,7 @@ namespace TailorCV.Profile.Features;
 
 public static class ExportProfile
 {
-    private static readonly JsonSerializerOptions CachedJsonOptions = new() { WriteIndented = true };
-
-    public record SectionExport(string SectionType, object Data);
+    public record SectionExport(string SectionType, JsonElement Data);
 
     public record ExportDto(
         string Headline,
@@ -28,8 +24,8 @@ public static class ExportProfile
         string Phone,
         string Location,
         string Website,
-        string LinkedinUrl,
-        string GithubUrl,
+        string Linkedin,
+        string Github,
         List<SectionExport> Sections,
         DateTimeOffset ExportedAt);
 
@@ -62,7 +58,7 @@ public static class ExportProfile
 
             foreach (SectionOrder order in profile.SectionOrders.OrderBy(s => s.Order))
             {
-                object? data = order.SectionType switch
+                object? entity = order.SectionType switch
                 {
                     SectionType.Experience => (object?)profile.Experiences.FirstOrDefault(e => e.Id == order.SectionId),
                     SectionType.Project => profile.Projects.FirstOrDefault(p => p.Id == order.SectionId),
@@ -74,8 +70,9 @@ public static class ExportProfile
                     _ => null,
                 };
 
-                if (data is not null)
+                if (entity is not null)
                 {
+                    JsonElement data = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(entity));
                     sections.Add(new SectionExport(order.SectionType.ToString(), data));
                 }
             }
@@ -106,9 +103,9 @@ public static class ExportProfile
             }
 
             string date = result.Value.ExportedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(result.Value));
             return Results.Stream(
-                new MemoryStream(Encoding.UTF8.GetBytes(
-                    JsonSerializer.Serialize(result.Value, CachedJsonOptions))),
+                new MemoryStream(bytes),
                 "application/json",
                 $"profile_export_{date}.json");
         })
@@ -119,5 +116,3 @@ public static class ExportProfile
         .WithDescription("Exports the user's full profile data as a downloadable JSON file.");
     }
 }
-
-#pragma warning restore CA1054, CA1305, CA1869

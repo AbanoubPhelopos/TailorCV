@@ -1,5 +1,4 @@
-#pragma warning disable CA1054
-
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,7 +13,7 @@ namespace TailorCV.Profile.Features;
 
 public static class GetSharedProfile
 {
-    public record VisitorSectionResponse(string SectionType, object Data);
+    public record VisitorSectionResponse(string SectionType, JsonElement Data);
 
     public record VisitorResponse(
         string FirstName,
@@ -23,8 +22,8 @@ public static class GetSharedProfile
         string Summary,
         string Location,
         string Website,
-        string LinkedinUrl,
-        string GithubUrl,
+        string Linkedin,
+        string Github,
         List<VisitorSectionResponse> Sections);
 
     public class Handler(
@@ -52,7 +51,7 @@ public static class GetSharedProfile
 
             foreach (SectionOrder order in profile.SectionOrders.OrderBy(s => s.Order))
             {
-                object? data = order.SectionType switch
+                object? entity = order.SectionType switch
                 {
                     SectionType.Experience => (object?)profile.Experiences.FirstOrDefault(e => e.Id == order.SectionId),
                     SectionType.Project => profile.Projects.FirstOrDefault(p => p.Id == order.SectionId),
@@ -64,8 +63,9 @@ public static class GetSharedProfile
                     _ => null,
                 };
 
-                if (data is not null)
+                if (entity is not null)
                 {
+                    JsonElement data = JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(entity));
                     sections.Add(new VisitorSectionResponse(order.SectionType.ToString(), data));
                 }
             }
@@ -101,5 +101,3 @@ public static class GetSharedProfile
         .WithDescription("Public endpoint that returns a read-only visitor view of a shared profile. No authentication required.");
     }
 }
-
-#pragma warning restore CA1054

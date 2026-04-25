@@ -1,5 +1,3 @@
-#pragma warning disable CA1054
-
 using TailorCV.Shared.Primitives;
 using TailorCV.Shared.Results;
 
@@ -24,7 +22,7 @@ public class Project : Entity
         string description,
         string[] techStack,
         string role,
-        string url,
+        string link,
         DateOnly? startDate,
         DateOnly? endDate)
     {
@@ -45,7 +43,7 @@ public class Project : Entity
             Description = description ?? string.Empty,
             TechStack = techStack ?? [],
             Role = role ?? string.Empty,
-            Url = url ?? string.Empty,
+            Url = link ?? string.Empty,
             StartDate = startDate,
             EndDate = endDate,
         });
@@ -56,7 +54,7 @@ public class Project : Entity
         string description,
         string[] techStack,
         string role,
-        string url,
+        string link,
         DateOnly? startDate,
         DateOnly? endDate)
     {
@@ -64,10 +62,8 @@ public class Project : Entity
         Description = description ?? string.Empty;
         TechStack = techStack ?? [];
         Role = role ?? string.Empty;
-        Url = url ?? string.Empty;
+        Url = link ?? string.Empty;
         StartDate = startDate;
         EndDate = endDate;
     }
 }
-
-#pragma warning restore CA1054

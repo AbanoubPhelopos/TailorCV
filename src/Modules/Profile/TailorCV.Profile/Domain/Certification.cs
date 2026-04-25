@@ -1,5 +1,3 @@
-#pragma warning disable CA1054
-
 using TailorCV.Shared.Primitives;
 using TailorCV.Shared.Results;
 
@@ -22,7 +20,7 @@ public class Certification : Entity
         string issuer,
         DateOnly date,
         DateOnly? expiryDate,
-        string url)
+        string credentialLink)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -46,7 +44,7 @@ public class Certification : Entity
             Issuer = issuer.Trim(),
             Date = date,
             ExpiryDate = expiryDate,
-            Url = url ?? string.Empty,
+            Url = credentialLink ?? string.Empty,
         });
     }
 
@@ -55,14 +53,12 @@ public class Certification : Entity
         string issuer,
         DateOnly date,
         DateOnly? expiryDate,
-        string url)
+        string credentialLink)
     {
         Name = name.Trim();
         Issuer = issuer.Trim();
         Date = date;
         ExpiryDate = expiryDate;
-        Url = url ?? string.Empty;
+        Url = credentialLink ?? string.Empty;
     }
 }
-
-#pragma warning restore CA1054

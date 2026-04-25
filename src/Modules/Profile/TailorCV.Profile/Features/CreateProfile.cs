@@ -1,5 +1,4 @@
-#pragma warning disable CA1054
-
+using System.Text.Json;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -21,21 +20,23 @@ public static class CreateProfile
         string? Phone,
         string? Location,
         string? Website,
-        string? LinkedinUrl,
-        string? GithubUrl);
+        string? Linkedin,
+        string? Github);
 
-    public record Response(
+    public record ProfileResponse(
         Guid Id,
         string Headline,
         string Summary,
         string Phone,
         string Location,
         string Website,
-        string LinkedinUrl,
-        string GithubUrl,
+        string Linkedin,
+        string Github,
         int Completeness,
-        object[] Sections,
+        List<SectionOutput> Sections,
         DateTimeOffset CreatedAt);
+
+    public record SectionOutput(string SectionType, Guid SectionId, int Order, JsonElement Data);
 
     public class Validator : AbstractValidator<Request>
     {
@@ -62,15 +63,15 @@ public static class CreateProfile
                 .WithMessage("Website must be a valid URL")
                 .When(x => !string.IsNullOrWhiteSpace(x.Website));
 
-            RuleFor(x => x.LinkedinUrl)
+            RuleFor(x => x.Linkedin)
                 .Must(BeAValidUrl)
                 .WithMessage("LinkedIn URL must be a valid URL")
-                .When(x => !string.IsNullOrWhiteSpace(x.LinkedinUrl));
+                .When(x => !string.IsNullOrWhiteSpace(x.Linkedin));
 
-            RuleFor(x => x.GithubUrl)
+            RuleFor(x => x.Github)
                 .Must(BeAValidUrl)
                 .WithMessage("GitHub URL must be a valid URL")
-                .When(x => !string.IsNullOrWhiteSpace(x.GithubUrl));
+                .When(x => !string.IsNullOrWhiteSpace(x.Github));
         }
 
         private static bool BeAValidUrl(string? url)
@@ -83,9 +84,9 @@ public static class CreateProfile
     public class Handler(
         ProfileDbContext dbContext,
         ICurrentUserService currentUserService,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
+        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, ProfileResponse>
     {
-        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<ProfileResponse>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
@@ -94,7 +95,7 @@ public static class CreateProfile
 
             if (exists)
             {
-                return Result<Response>.Failure(ProfileErrors.ProfileAlreadyExists);
+                return Result<ProfileResponse>.Failure(ProfileErrors.ProfileAlreadyExists);
             }
 
             DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -106,13 +107,13 @@ public static class CreateProfile
                 command.Phone ?? string.Empty,
                 command.Location ?? string.Empty,
                 command.Website ?? string.Empty,
-                command.LinkedinUrl ?? string.Empty,
-                command.GithubUrl ?? string.Empty,
+                command.Linkedin ?? string.Empty,
+                command.Github ?? string.Empty,
                 now);
 
             if (profileResult.IsFailure)
             {
-                return Result<Response>.Failure(profileResult.Error);
+                return Result<ProfileResponse>.Failure(profileResult.Error);
             }
 
             Domain.Profile profile = profileResult.Value;
@@ -120,9 +121,7 @@ public static class CreateProfile
             dbContext.Profiles.Add(profile);
             await dbContext.SaveChangesAsync(ct);
 
-            int completeness = profile.CalculateCompleteness();
-
-            return Result<Response>.Success(new Response(
+            return Result<ProfileResponse>.Success(new ProfileResponse(
                 profile.Id,
                 profile.Headline,
                 profile.Summary,
@@ -131,8 +130,8 @@ public static class CreateProfile
                 profile.Website,
                 profile.LinkedinUrl,
                 profile.GithubUrl,
-                completeness,
-                Array.Empty<object>(),
+                profile.Completeness,
+                [],
                 profile.CreatedAt));
         }
     }
@@ -141,10 +140,10 @@ public static class CreateProfile
     {
         app.MapPost("/api/profiles", async (
             Request request,
-            ICommandHandler<Request, Response> handler,
+            ICommandHandler<Request, ProfileResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(request, ct);
+            Result<ProfileResponse> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Created($"/api/profiles/me", result.Value)
                 : result.ToProblemDetails();
@@ -156,5 +155,3 @@ public static class CreateProfile
         .WithDescription("Creates a new professional profile for the authenticated user. One profile per user.");
     }
 }
-
-#pragma warning restore CA1054

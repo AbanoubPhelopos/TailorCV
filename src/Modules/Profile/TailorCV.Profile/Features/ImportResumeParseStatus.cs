@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -12,13 +13,13 @@ namespace TailorCV.Profile.Features;
 
 public static class ImportResumeParseStatus
 {
-    public record Response(string Status, object? ParsedData = null, string? Error = null);
+    public record ParseStatusResponse(string Status, JsonElement? ParsedData = null, string? Error = null);
 
     public class Handler(
         ProfileDbContext dbContext,
-        ICurrentUserService currentUserService) : IQueryHandler<Guid, Response>
+        ICurrentUserService currentUserService) : IQueryHandler<Guid, ParseStatusResponse>
     {
-        public async Task<Result<Response>> HandleAsync(Guid parseId, CancellationToken ct)
+        public async Task<Result<ParseStatusResponse>> HandleAsync(Guid parseId, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
@@ -27,16 +28,16 @@ public static class ImportResumeParseStatus
 
             if (parseJob is null)
             {
-                return Result<Response>.Failure(ProfileErrors.ParseJobNotFound);
+                return Result<ParseStatusResponse>.Failure(ProfileErrors.ParseJobNotFound);
             }
 
             return parseJob.Status switch
             {
-                Domain.Enums.ParseJobStatus.Queued => Result<Response>.Success(new Response("QUEUED")),
-                Domain.Enums.ParseJobStatus.Processing => Result<Response>.Success(new Response("PROCESSING")),
-                Domain.Enums.ParseJobStatus.Done => Result<Response>.Success(new Response("DONE", parseJob.ParsedData)),
-                Domain.Enums.ParseJobStatus.Failed => Result<Response>.Success(new Response("FAILED", Error: parseJob.Error)),
-                _ => Result<Response>.Failure(Error.Validation("Unknown parse job status")),
+                Domain.Enums.ParseJobStatus.Queued => Result<ParseStatusResponse>.Success(new ParseStatusResponse("QUEUED")),
+                Domain.Enums.ParseJobStatus.Processing => Result<ParseStatusResponse>.Success(new ParseStatusResponse("PROCESSING")),
+                Domain.Enums.ParseJobStatus.Done => Result<ParseStatusResponse>.Success(new ParseStatusResponse("DONE", parseJob.ParsedData?.RootElement)),
+                Domain.Enums.ParseJobStatus.Failed => Result<ParseStatusResponse>.Success(new ParseStatusResponse("FAILED", Error: parseJob.Error)),
+                _ => Result<ParseStatusResponse>.Failure(Error.Validation("Unknown parse job status")),
             };
         }
     }
@@ -45,10 +46,10 @@ public static class ImportResumeParseStatus
     {
         app.MapGet("/api/profiles/me/import/parse/{parseId:guid}/status", async (
             Guid parseId,
-            IQueryHandler<Guid, Response> handler,
+            IQueryHandler<Guid, ParseStatusResponse> handler,
             CancellationToken ct) =>
         {
-            Result<Response> result = await handler.HandleAsync(parseId, ct);
+            Result<ParseStatusResponse> result = await handler.HandleAsync(parseId, ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using TailorCV.Profile.Domain;
 
 namespace TailorCV.Profile.Infrastructure;
@@ -18,9 +19,15 @@ public class ProfileDbContext : DbContext
 
     public ProfileDbContext(DbContextOptions<ProfileDbContext> options) : base(options) { }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.ConfigureWarnings(w => w.Log(RelationalEventId.PendingModelChangesWarning));
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("profile");
+        modelBuilder.Ignore<CustomSectionItem>();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProfileDbContext).Assembly);
     }
 }
