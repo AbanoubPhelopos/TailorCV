@@ -1,4 +1,3 @@
-using System.Text.Json;
 using TailorCV.Profile.Domain.Enums;
 using TailorCV.Shared.Primitives;
 
@@ -9,7 +8,7 @@ public class ParseJob : Entity
     public Guid UserId { get; private set; }
     public string S3Key { get; private set; } = string.Empty;
     public ParseJobStatus Status { get; private set; }
-    public JsonDocument? ParsedData { get; private set; }
+    public ParsedResumeData? ParsedData { get; private set; }
     public string? Error { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
@@ -32,7 +31,7 @@ public class ParseJob : Entity
         Status = ParseJobStatus.Processing;
     }
 
-    public void MarkDone(JsonDocument parsedData, DateTimeOffset now)
+    public void MarkDone(ParsedResumeData parsedData, DateTimeOffset now)
     {
         Status = ParseJobStatus.Done;
         ParsedData = parsedData;

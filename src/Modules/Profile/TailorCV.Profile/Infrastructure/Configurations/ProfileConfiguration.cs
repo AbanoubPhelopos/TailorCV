@@ -8,7 +8,7 @@ public class ProfileConfiguration : IEntityTypeConfiguration<Domain.Profile>
 {
     public void Configure(EntityTypeBuilder<Domain.Profile> builder)
     {
-        builder.ToTable("profiles", "profile");
+        builder.ToTable("profiles");
 
         builder.HasKey(p => p.Id);
 
@@ -21,6 +21,8 @@ public class ProfileConfiguration : IEntityTypeConfiguration<Domain.Profile>
         builder.Property(p => p.LinkedinUrl).HasMaxLength(500);
         builder.Property(p => p.GithubUrl).HasMaxLength(500);
         builder.Property(p => p.ShareId).HasMaxLength(100);
+        builder.Property(p => p.Sections).HasColumnType("jsonb");
+
         builder.HasIndex(p => p.UserId).IsUnique();
         builder.HasIndex(p => p.ShareId).IsUnique().HasFilter("\"share_id\" IS NOT NULL");
     }

@@ -1,14 +1,16 @@
-using System.Text.Json;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using TailorCV.Profile.Domain;
+using TailorCV.Profile.Features.Shared;
 using TailorCV.Profile.Infrastructure;
 using TailorCV.Shared.CQRS;
 using TailorCV.Shared.Interfaces;
 using TailorCV.Shared.Results;
+
+#pragma warning disable CA1054
 
 namespace TailorCV.Profile.Features;
 
@@ -23,54 +25,33 @@ public static class CreateProfile
         string? Linkedin,
         string? Github);
 
-    public record ProfileResponse(
+    public record Response(
         Guid Id,
         string Headline,
         string Summary,
         string Phone,
         string Location,
         string Website,
-        string Linkedin,
-        string Github,
+        string LinkedinUrl,
+        string GithubUrl,
         int Completeness,
-        List<SectionOutput> Sections,
+        List<SectionData> Sections,
         DateTimeOffset CreatedAt);
-
-    public record SectionOutput(string SectionType, Guid SectionId, int Order, JsonElement Data);
 
     public class Validator : AbstractValidator<Request>
     {
         public Validator()
         {
-            RuleFor(x => x.Headline)
-                .MaximumLength(200)
-                .When(x => x.Headline is not null);
+            RuleFor(x => x.Headline).MaximumLength(200).When(x => x.Headline is not null);
+            RuleFor(x => x.Summary).MaximumLength(2000).When(x => x.Summary is not null);
+            RuleFor(x => x.Phone).MaximumLength(50).When(x => x.Phone is not null);
+            RuleFor(x => x.Location).MaximumLength(200).When(x => x.Location is not null);
 
-            RuleFor(x => x.Summary)
-                .MaximumLength(2000)
-                .When(x => x.Summary is not null);
-
-            RuleFor(x => x.Phone)
-                .MaximumLength(50)
-                .When(x => x.Phone is not null);
-
-            RuleFor(x => x.Location)
-                .MaximumLength(200)
-                .When(x => x.Location is not null);
-
-            RuleFor(x => x.Website)
-                .Must(BeAValidUrl)
-                .WithMessage("Website must be a valid URL")
+            RuleFor(x => x.Website).Must(BeAValidUrl).WithMessage("Website must be a valid URL")
                 .When(x => !string.IsNullOrWhiteSpace(x.Website));
-
-            RuleFor(x => x.Linkedin)
-                .Must(BeAValidUrl)
-                .WithMessage("LinkedIn URL must be a valid URL")
+            RuleFor(x => x.Linkedin).Must(BeAValidUrl).WithMessage("LinkedIn URL must be a valid URL")
                 .When(x => !string.IsNullOrWhiteSpace(x.Linkedin));
-
-            RuleFor(x => x.Github)
-                .Must(BeAValidUrl)
-                .WithMessage("GitHub URL must be a valid URL")
+            RuleFor(x => x.Github).Must(BeAValidUrl).WithMessage("GitHub URL must be a valid URL")
                 .When(x => !string.IsNullOrWhiteSpace(x.Github));
         }
 
@@ -84,18 +65,17 @@ public static class CreateProfile
     public class Handler(
         ProfileDbContext dbContext,
         ICurrentUserService currentUserService,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, ProfileResponse>
+        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
     {
-        public async Task<Result<ProfileResponse>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
-            bool exists = await dbContext.Profiles
-                .AnyAsync(p => p.UserId == userId, ct);
+            bool exists = await dbContext.Profiles.AnyAsync(p => p.UserId == userId, ct);
 
             if (exists)
             {
-                return Result<ProfileResponse>.Failure(ProfileErrors.ProfileAlreadyExists);
+                return Result<Response>.Failure(ProfileErrors.ProfileAlreadyExists);
             }
 
             DateTimeOffset now = dateTimeProvider.UtcNow;
@@ -113,7 +93,7 @@ public static class CreateProfile
 
             if (profileResult.IsFailure)
             {
-                return Result<ProfileResponse>.Failure(profileResult.Error);
+                return Result<Response>.Failure(profileResult.Error);
             }
 
             Domain.Profile profile = profileResult.Value;
@@ -121,18 +101,10 @@ public static class CreateProfile
             dbContext.Profiles.Add(profile);
             await dbContext.SaveChangesAsync(ct);
 
-            return Result<ProfileResponse>.Success(new ProfileResponse(
-                profile.Id,
-                profile.Headline,
-                profile.Summary,
-                profile.Phone,
-                profile.Location,
-                profile.Website,
-                profile.LinkedinUrl,
-                profile.GithubUrl,
-                profile.Completeness,
-                [],
-                profile.CreatedAt));
+            return Result<Response>.Success(new Response(
+                profile.Id, profile.Headline, profile.Summary, profile.Phone,
+                profile.Location, profile.Website, profile.LinkedinUrl, profile.GithubUrl,
+                profile.Completeness, [], profile.CreatedAt));
         }
     }
 
@@ -140,10 +112,10 @@ public static class CreateProfile
     {
         app.MapPost("/api/profiles", async (
             Request request,
-            ICommandHandler<Request, ProfileResponse> handler,
+            ICommandHandler<Request, Response> handler,
             CancellationToken ct) =>
         {
-            Result<ProfileResponse> result = await handler.HandleAsync(request, ct);
+            Result<Response> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Created($"/api/profiles/me", result.Value)
                 : result.ToProblemDetails();

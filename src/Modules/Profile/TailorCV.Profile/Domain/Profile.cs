@@ -18,14 +18,7 @@ public class Profile : Entity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public ICollection<Experience> Experiences { get; private set; } = [];
-    public ICollection<Project> Projects { get; private set; } = [];
-    public ICollection<Skill> Skills { get; private set; } = [];
-    public ICollection<Education> Education { get; private set; } = [];
-    public ICollection<Certification> Certifications { get; private set; } = [];
-    public ICollection<Language> Languages { get; private set; } = [];
-    public ICollection<CustomSection> CustomSections { get; private set; } = [];
-    public ICollection<SectionOrder> SectionOrders { get; private set; } = [];
+    public List<ProfileSection> Sections { get; private set; } = [];
 
     private Profile() { }
 
@@ -55,38 +48,43 @@ public class Profile : Entity
                 score += 5;
             }
 
-            if (Experiences.Count != 0)
+            if (HasSectionType("experience"))
             {
                 score += 20;
             }
 
-            if (Projects.Count != 0)
+            if (HasSectionType("project"))
             {
                 score += 10;
             }
 
-            if (Skills.Count != 0)
+            if (HasSectionType("skill"))
             {
                 score += 15;
             }
 
-            if (Education.Count != 0)
+            if (HasSectionType("education"))
             {
                 score += 10;
             }
 
-            if (Certifications.Count != 0)
+            if (HasSectionType("certification"))
             {
                 score += 5;
             }
 
-            if (Languages.Count != 0)
+            if (HasSectionType("language"))
             {
                 score += 10;
             }
 
             return score;
         }
+    }
+
+    private bool HasSectionType(string type)
+    {
+        return Sections.Any(s => s.Type == type && s.Items.Count != 0);
     }
 
     public static Result<Profile> Create(
@@ -108,13 +106,13 @@ public class Profile : Entity
         return Result<Profile>.Success(new Profile
         {
             UserId = userId,
-            Headline = headline ?? string.Empty,
-            Summary = summary ?? string.Empty,
-            Phone = phone ?? string.Empty,
-            Location = location ?? string.Empty,
-            Website = website ?? string.Empty,
-            LinkedinUrl = linkedin ?? string.Empty,
-            GithubUrl = github ?? string.Empty,
+            Headline = headline,
+            Summary = summary,
+            Phone = phone,
+            Location = location,
+            Website = website,
+            LinkedinUrl = linkedin,
+            GithubUrl = github,
             IsShared = false,
             CreatedAt = now,
             UpdatedAt = now,
@@ -131,13 +129,19 @@ public class Profile : Entity
         string github,
         DateTimeOffset now)
     {
-        Headline = headline ?? string.Empty;
-        Summary = summary ?? string.Empty;
-        Phone = phone ?? string.Empty;
-        Location = location ?? string.Empty;
-        Website = website ?? string.Empty;
-        LinkedinUrl = linkedin ?? string.Empty;
-        GithubUrl = github ?? string.Empty;
+        Headline = headline;
+        Summary = summary;
+        Phone = phone ;
+        Location = location ;
+        Website = website ;
+        LinkedinUrl = linkedin;
+        GithubUrl = github ;
+        UpdatedAt = now;
+    }
+
+    public void UpdateSections(List<ProfileSection> sections, DateTimeOffset now)
+    {
+        Sections = sections;
         UpdatedAt = now;
     }
 

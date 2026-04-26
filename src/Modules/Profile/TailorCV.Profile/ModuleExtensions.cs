@@ -75,6 +75,7 @@ public static class ModuleExtensions
         Features.CreateProfile.MapEndpoint(app);
         Features.GetProfile.MapEndpoint(app);
         Features.UpdateProfile.MapEndpoint(app);
+        Features.UpdateSections.MapEndpoint(app);
         Features.GetCompleteness.MapEndpoint(app);
         Features.ExportProfile.MapEndpoint(app);
         Features.ShareProfile.MapEndpoint(app);

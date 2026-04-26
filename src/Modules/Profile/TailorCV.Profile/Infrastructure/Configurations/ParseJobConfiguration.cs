@@ -9,7 +9,7 @@ public class ParseJobConfiguration : IEntityTypeConfiguration<ParseJob>
 {
     public void Configure(EntityTypeBuilder<ParseJob> builder)
     {
-        builder.ToTable("parse_jobs", "profile");
+        builder.ToTable("parse_jobs");
 
         builder.HasKey(p => p.Id);
 
@@ -20,5 +20,7 @@ public class ParseJobConfiguration : IEntityTypeConfiguration<ParseJob>
                 v => v.ToString(),
                 v => Enum.Parse<ParseJobStatus>(v));
         builder.Property(p => p.Error).HasMaxLength(2000);
+
+        builder.ComplexProperty(p => p.ParsedData, d => d.ToJson());
     }
 }

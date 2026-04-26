@@ -12,7 +12,7 @@ public static class ImportResumeGetUploadUrl
 {
     public record Request(string FileName, string ContentType);
 
-    public record UploadUrlResponse(string Key, string Endpoint, Dictionary<string, string> Fields);
+    public record Response(string Key, string Endpoint, Dictionary<string, string> Fields);
 
     public class Validator : AbstractValidator<Request>
     {
@@ -34,24 +34,26 @@ public static class ImportResumeGetUploadUrl
 
     public class Handler(
         IBlobStorage blobStorage,
-        ICurrentUserService currentUserService) : ICommandHandler<Request, UploadUrlResponse>
+        ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
     {
-        public async Task<Result<UploadUrlResponse>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
             string extension = Path.GetExtension(command.FileName);
-            string key = $"resumes/{userId}/{Guid.CreateVersion7()}{extension}";
+            DateTimeOffset now = dateTimeProvider.UtcNow;
+            string key = $"resumes/{userId}/{now:yyyy}/{now:MM}/{now:dd}/{Guid.CreateVersion7()}{extension}";
 
             PresignedPostResponse presigned = await blobStorage.GeneratePresignedPostAsync(
                 key,
                 command.ContentType,
-                maxSizeBytes: 10 * 1024 * 1024,
-                expiry: TimeSpan.FromMinutes(15),
+                maxSizeBytes: 5 * 1024 * 1024,
+                expiry: TimeSpan.FromMinutes(5),
                 ct);
 
             Dictionary<string, string> fields = new(presigned.Fields);
 
-            return Result<UploadUrlResponse>.Success(new UploadUrlResponse(key, presigned.Endpoint, fields));
+            return Result<Response>.Success(new Response(key, presigned.Endpoint, fields));
         }
     }
 
@@ -59,10 +61,10 @@ public static class ImportResumeGetUploadUrl
     {
         app.MapPost("/api/profiles/me/import/upload-url", async (
             Request request,
-            ICommandHandler<Request, UploadUrlResponse> handler,
+            ICommandHandler<Request, Response> handler,
             CancellationToken ct) =>
         {
-            Result<UploadUrlResponse> result = await handler.HandleAsync(request, ct);
+            Result<Response> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Ok(result.Value)
                 : result.ToProblemDetails();
