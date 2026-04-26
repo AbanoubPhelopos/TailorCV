@@ -1,11 +1,11 @@
-using System.Security.Cryptography;
+using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using TailorCV.Profile.Contracts.Events;
 using TailorCV.Profile.Domain;
+using TailorCV.Profile.Features.Shared;
 using TailorCV.Profile.Infrastructure;
 using TailorCV.Shared.CQRS;
 using TailorCV.Shared.Interfaces;
@@ -14,15 +14,24 @@ using Wolverine;
 
 namespace TailorCV.Profile.Features;
 
-public static class ShareProfile
+public static class UpdateSections
 {
-    public record Request(bool Enabled);
+    public record Request(List<SectionData> Sections);
 
-    public record Response(bool IsShared, string? ShareLink, string? ShareId);
+    public record Response(List<SectionData> Sections, int Completeness);
+
+    public class Validator : AbstractValidator<Request>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Sections).NotNull();
+        }
+    }
 
     public class Handler(
         ProfileDbContext dbContext,
         ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider,
         IMessageBus bus) : ICommandHandler<Request, Response>
     {
         public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
@@ -37,36 +46,20 @@ public static class ShareProfile
                 return Result<Response>.Failure(ProfileErrors.ProfileNotFound);
             }
 
-            if (command.Enabled)
-            {
-                string shareId = GenerateShareId();
-                profile.EnableSharing(shareId);
-            }
-            else
-            {
-                profile.DisableSharing();
-            }
-
+            profile.UpdateSections(command.Sections.ToProfileSectionList(), dateTimeProvider.UtcNow);
             await dbContext.SaveChangesAsync(ct);
 
             await bus.PublishAsync(new ProfileUpdated(userId, profile.Id, profile.UpdatedAt));
 
             return Result<Response>.Success(new Response(
-                profile.IsShared,
-                profile.IsShared ? $"/api/profiles/shared/{profile.ShareId}" : null,
-                profile.IsShared ? profile.ShareId : null));
-        }
-
-        private static string GenerateShareId()
-        {
-            byte[] bytes = RandomNumberGenerator.GetBytes(15);
-            return Base64UrlTextEncoder.Encode(bytes);
+                profile.Sections.ToSectionDataList(),
+                profile.Completeness));
         }
     }
 
     public static void MapEndpoint(IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/profiles/me/share", async (
+        app.MapPut("/api/profiles/me/sections", async (
             Request request,
             ICommandHandler<Request, Response> handler,
             CancellationToken ct) =>
@@ -78,8 +71,8 @@ public static class ShareProfile
         })
         .RequireAuthorization()
         .WithTags("Profile")
-        .WithName("ShareProfile")
-        .WithSummary("Toggle profile sharing")
-        .WithDescription("Enables or disables profile sharing. Generates a unique share URL on first enable.");
+        .WithName("UpdateSections")
+        .WithSummary("Update all profile sections")
+        .WithDescription("Bulk updates all sections. Frontend sends full desired state.");
     }
 }

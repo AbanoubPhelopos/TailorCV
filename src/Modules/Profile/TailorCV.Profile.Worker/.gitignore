@@ -1,0 +1,3 @@
+# Local config — DO NOT COMMIT
+appsettings.json
+appsettings.*.local.json

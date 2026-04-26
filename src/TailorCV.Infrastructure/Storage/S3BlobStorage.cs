@@ -32,9 +32,17 @@ public class S3BlobStorage : IBlobStorage
 
         if (!exists)
         {
-            _logger.LogInformation("Creating S3 bucket {Bucket}", _options.BucketName);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("Creating S3 bucket {Bucket}", _options.BucketName);
+            }
+
             await _s3Client.PutBucketAsync(_options.BucketName, ct);
-            _logger.LogInformation("Created S3 bucket {Bucket}", _options.BucketName);
+
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("Created S3 bucket {Bucket}", _options.BucketName);
+            }
         }
     }
 
@@ -50,7 +58,10 @@ public class S3BlobStorage : IBlobStorage
 
         await _s3Client.PutObjectAsync(putRequest, ct);
 
-        _logger.LogInformation("Uploaded {FileName} to bucket {Bucket}", fileName, _options.BucketName);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("Uploaded {FileName} to bucket {Bucket}", fileName, _options.BucketName);
+        }
 
         return fileName;
     }
@@ -105,7 +116,10 @@ public class S3BlobStorage : IBlobStorage
         await _s3Client.CopyObjectAsync(copyRequest, ct);
         await DeleteAsync(sourceKey, ct);
 
-        _logger.LogInformation("Moved {Source} to {Destination} in bucket {Bucket}", sourceKey, destinationKey, _options.BucketName);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("Moved {Source} to {Destination} in bucket {Bucket}", sourceKey, destinationKey, _options.BucketName);
+        }
     }
 
     public async Task<bool> ExistsAsync(string fileKey, CancellationToken ct = default)

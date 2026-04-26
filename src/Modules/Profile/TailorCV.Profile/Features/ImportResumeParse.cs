@@ -3,11 +3,15 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using TailorCV.Profile.Contracts.Commands;
 using TailorCV.Profile.Domain;
 using TailorCV.Profile.Infrastructure;
 using TailorCV.Shared.CQRS;
 using TailorCV.Shared.Interfaces;
 using TailorCV.Shared.Results;
+using Wolverine;
+
+#pragma warning disable CA1308
 
 namespace TailorCV.Profile.Features;
 
@@ -15,7 +19,7 @@ public static class ImportResumeParse
 {
     public record Request(string Key);
 
-    public record ParseTriggerResponse(Guid ParseId);
+    public record Response(Guid ParseId);
 
     public class Validator : AbstractValidator<Request>
     {
@@ -31,23 +35,35 @@ public static class ImportResumeParse
     public class Handler(
         ProfileDbContext dbContext,
         ICurrentUserService currentUserService,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, ParseTriggerResponse>
+        IDateTimeProvider dateTimeProvider,
+        IMessageBus bus) : ICommandHandler<Request, Response>
     {
-        public async Task<Result<ParseTriggerResponse>> HandleAsync(Request command, CancellationToken ct)
+        public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
         {
             Guid userId = currentUserService.UserId;
 
             string expectedPrefix = $"resumes/{userId}/";
             if (!command.Key.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
             {
-                return Result<ParseTriggerResponse>.Failure(Error.Validation("S3 key does not belong to this user"));
+                return Result<Response>.Failure(Error.Validation("S3 key does not belong to this user"));
             }
 
             ParseJob parseJob = ParseJob.Create(userId, command.Key, dateTimeProvider.UtcNow);
             dbContext.ParseJobs.Add(parseJob);
             await dbContext.SaveChangesAsync(ct);
 
-            return Result<ParseTriggerResponse>.Success(new ParseTriggerResponse(parseJob.Id));
+            string extension = Path.GetExtension(command.Key).ToLowerInvariant();
+            string contentType = extension switch
+            {
+                ".pdf" => "application/pdf",
+                ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                _ => "application/octet-stream",
+            };
+            string fileName = Path.GetFileName(command.Key);
+
+            await bus.PublishAsync(new ParseResume(parseJob.Id, command.Key, fileName, contentType, userId));
+
+            return Result<Response>.Success(new Response(parseJob.Id));
         }
     }
 
@@ -55,10 +71,10 @@ public static class ImportResumeParse
     {
         app.MapPost("/api/profiles/me/import/parse", async (
             Request request,
-            ICommandHandler<Request, ParseTriggerResponse> handler,
+            ICommandHandler<Request, Response> handler,
             CancellationToken ct) =>
         {
-            Result<ParseTriggerResponse> result = await handler.HandleAsync(request, ct);
+            Result<Response> result = await handler.HandleAsync(request, ct);
             return result.IsSuccess
                 ? Results.Json(result.Value, statusCode: 202)
                 : result.ToProblemDetails();
