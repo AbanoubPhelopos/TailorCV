@@ -197,7 +197,7 @@
 
 ---
 
-## 3. JobScraper
+## 3. JobDescriptions
 
 ### MVP
 

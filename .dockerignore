@@ -2,8 +2,8 @@ docs/
 .git/
 .gitignore
 .idea/
-.editorconfig
 **/bin/
 **/obj/
+**/.playwright/
 *.md
 infra/

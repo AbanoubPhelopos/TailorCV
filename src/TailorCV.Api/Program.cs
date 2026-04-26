@@ -1,6 +1,8 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
@@ -9,19 +11,52 @@ using TailorCV.Api.OpenApi;
 using TailorCV.Api.Services;
 using TailorCV.Identity;
 using TailorCV.Identity.Infrastructure;
+using TailorCV.JobDescriptions;
 using TailorCV.Shared.Interfaces;
+using Wolverine;
+using Wolverine.RabbitMQ;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 builder.Host.UseSerilog((context, config) =>
 {
     config.ReadFrom.Configuration(context.Configuration);
 });
 
+builder.Host.UseWolverine(opts =>
+{
+    opts.UseRabbitMq(builder.Configuration["RabbitMQ:ConnectionString"]!)
+        .AutoProvision();
+
+    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ScrapeJobUrl>()
+        .ToRabbitQueue("job-description.commands");
+    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ParseJobText>()
+        .ToRabbitQueue("job-description.commands");
+
+    opts.ListenToRabbitQueue("job-description.events");
+
+    opts.ApplicationAssembly = typeof(TailorCV.JobDescriptions.ModuleExtensions).Assembly;
+    opts.ServiceName = "TailorCV.Api";
+});
+
 builder.Services.AddHealthChecks();
 
 builder.Services.AddOpenApi(options =>
 {
+    options.CreateSchemaReferenceId = (info) =>
+    {
+        if (info.Type.DeclaringType is { } declaringType)
+        {
+            return $"{declaringType.Name}{info.Type.Name}";
+        }
+
+        return null;
+    };
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
 
@@ -30,9 +65,7 @@ builder.Services.AddSingleton<ICurrentUserService, CurrentUserService>();
 builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
 builder.Services.AddIdentityModule(builder.Configuration);
-
-JwtSettings jwtSettings = new();
-builder.Configuration.GetSection("JwtSettings").Bind(jwtSettings);
+builder.Services.AddJobDescriptionsModule(builder.Configuration);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -44,9 +77,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSettings.Issuer,
-            ValidAudience = jwtSettings.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+            ValidIssuer = builder.Configuration[$"{JwtSettings.SectionName}:Issuer"],
+            ValidAudience = builder.Configuration[$"{JwtSettings.SectionName}:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration[$"{JwtSettings.SectionName}:Secret"]!)),
             RoleClaimType = "role",
             NameClaimType = "sub",
         };
@@ -57,6 +90,7 @@ builder.Services.AddAuthorization();
 WebApplication app = builder.Build();
 
 await app.MigrateIdentityModuleAsync();
+await app.MigrateJobDescriptionsModuleAsync();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -76,6 +110,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
+app.MapJobDescriptionsEndpoints();
 
 app.MapGet("/", () => "TailorCV API");
 

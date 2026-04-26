@@ -399,5 +399,15 @@ FodyWeavers.xsd
 
 .containers/
 
+
 # AI Agent session state and specs
 .ai/
+
+# Implementation plans
+plans/
+
+# Private scripts and test files
+private/
+
+# JetBrains stuff
+.idea/

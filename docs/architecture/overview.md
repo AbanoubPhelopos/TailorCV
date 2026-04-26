@@ -44,7 +44,7 @@
 │                       TailorCV.Api (Host)                     │
 │              Minimal APIs + Wolverine + gRPC                  │
 ├──────────┬──────────┬────────────┬────────────┬──────────────┤
-│ Identity │ Profile  │ JobScraper │ Templates  │ CVGenerator  │
+│ Identity │ Profile  │ JobDescriptions │ Templates  │ CVGenerator  │
 ├──────────┴──────────┴────────────┴────────────┴──────────────┤
 │                                                               │
 │   Async: Wolverine + RabbitMQ (events, sagas, outbox)        │
@@ -136,7 +136,7 @@ TailorCV/
 │   ├── protos/                                  # gRPC contracts (all empty placeholders)
 │   │   ├── identity.proto
 │   │   ├── profile.proto
-│   │   ├── jobscraper.proto
+│   │   ├── jobdescriptions.proto
 │   │   ├── templates.proto
 │   │   └── cvgenerator.proto
 │   │
@@ -178,18 +178,57 @@ TailorCV/
 │       │   └── TailorCV.Profile.Contracts/
 │       │       └── Events/ProfileUpdatedEvent.cs  # Empty stub
 │       │
-│       ├── JobScraper/
-│       │   ├── TailorCV.JobScraper/             # STUBS (domain scaffolded, features empty)
-│       │   │   ├── Features/                    # 5 empty namespace stubs
+│       ├── JobDescriptions/
+│       │   ├── TailorCV.JobDescriptions/               # FULLY IMPLEMENTED
+│       │   │   ├── Features/
+│       │   │   │   ├── ParseJobDescription.cs
+│       │   │   │   ├── ScrapeJobDescription.cs
+│       │   │   │   ├── GetParseStatus.cs
+│       │   │   │   ├── SaveJobDescription.cs
+│       │   │   │   ├── ListJobs.cs
+│       │   │   │   └── GetJob.cs
 │       │   │   ├── Domain/
+│       │   │   │   ├── JobDescription.cs              # Rich entity, static Create()
+│       │   │   │   ├── ParseJob.cs                     # Entity for async parse tracking
+│       │   │   │   ├── JobDescriptionErrors.cs         # Centralized business error codes
+│       │   │   │   └── Enums/                          # ParseJobStatus, ParseJobType, SeniorityLevel
 │       │   │   ├── Infrastructure/
-│       │   │   │   ├── JobScraperDbContext.cs   # Empty stub
-│       │   │   │   ├── Scraping/PlaywrightScrapingService.cs
-│       │   │   │   ├── AI/JobDescriptionParserService.cs
-│       │   │   │   └── Configurations/          # Empty directory
-│       │   │   └── ModuleExtensions.cs          # Empty stub
-│       │   └── TailorCV.JobScraper.Contracts/
-│       │       └── Events/JobDescriptionSavedEvent.cs  # Empty stub
+│       │   │   │   ├── JobDescriptionsDbContext.cs     # schema: "jobdescriptions"
+│       │   │   │   ├── JobDescriptionDbContextFactory.cs  # Design-time factory
+│       │   │   │   ├── Configurations/                # EF Core entity configs
+│       │   │   │   └── Migrations/                     # EF Core migrations
+│       │   │   ├── Events/                             # Wolverine event handlers
+│       │   │   │   ├── JobParsingCompletedHandler.cs
+│       │   │   │   └── JobParsingFailedHandler.cs
+│       │   │   └── ModuleExtensions.cs                # AddJobDescriptionsModule(), MigrateJobDescriptionsModuleAsync()
+│       │   ├── TailorCV.JobDescriptions.Contracts/
+│       │   │   ├── Commands/
+│       │   │   │   ├── ParseJobText.cs                 # Publish to worker queue
+│       │   │   │   └── ScrapeJobUrl.cs                  # Publish to worker queue
+│       │   │   ├── Dto/
+│       │   │   │   └── ParsedJobDataDto.cs
+│       │   │   └── Events/
+│       │   │       ├── JobParsingCompleted.cs          # Published by worker
+│       │   │       └── JobParsingFailed.cs              # Published by worker
+│       │   │
+│       │   └── TailorCV.JobDescriptions.Worker/        # Wolverine host, separate process
+│       │       ├── Program.cs                          # Wolverine + RabbitMQ config
+│       │       ├── ModuleExtensions.cs                 # DI for AI, scraping, rate limiting
+│       │       ├── Handlers/
+│       │       │   ├── ParseJobTextHandler.cs           # OpenAI parsing
+│       │       │   └── ScrapeJobUrlHandler.cs           # Playwright scraping → chains to ParseJobText
+│       │       └── Infrastructure/
+│       │           ├── AI/                              # OpenAI integration
+│       │           │   ├── IJobDescriptionParserService.cs
+│       │           │   ├── OpenAiJobParserService.cs
+│       │           │   └── OpenAiOptions.cs
+│       │           ├── Scraping/                        # Playwright headless browser
+│       │           │   ├── IPlaywrightScrapingService.cs
+│       │           │   ├── PlaywrightScrapingService.cs
+│       │           │   └── PlaywrightOptions.cs
+│       │           └── RateLimiting/                    # Per-domain rate limiting
+│       │               ├── DomainExtractor.cs
+│       │               └── DomainRateLimiter.cs
 │       │
 │       ├── Templates/
 │       │   └── TailorCV.Templates/              # DIRECTORY ONLY (no .cs source files)
@@ -215,7 +254,7 @@ TailorCV/
 │       ├── full.md
 │       ├── identity/ (register, login, refresh-token, logout)
 │       ├── profile/ (10 feature docs)
-│       └── jobscraper/ (5 feature docs)
+│   └── job-descriptions/ (6 feature docs)
 │
 ├── tests/                                       # NOT YET CREATED
 └── frontend/                                    # NOT YET CREATED
@@ -244,9 +283,9 @@ TailorCV.Profile.Contracts/
 └── Events/
     └── ProfileUpdatedEvent.cs        # Guid UserId, Guid ProfileId, DateTime UpdatedAt
 
-TailorCV.JobScraper.Contracts/
+TailorCV.JobDescriptions.Contracts/
 └── Events/
-    └── JobDescriptionSavedEvent.cs   # Guid JobId, Guid UserId, string Title, DateTime SavedAt
+    └── JobDescriptionSavedEvent.cs   # (not used — save is synchronous, no event)
 
 TailorCV.Templates.Contracts/
 └── Events/                           # (currently empty — Templates don't publish events)
@@ -262,7 +301,7 @@ TailorCV.CVGenerator.Contracts/
 <!-- TailorCV.CVGenerator.csproj — heaviest consumer of contracts -->
 <ItemGroup>
   <ProjectReference Include="..\Profile\TailorCV.Profile.Contracts\TailorCV.Profile.Contracts.csproj" />
-  <ProjectReference Include="..\JobScraper\TailorCV.JobScraper.Contracts\TailorCV.JobScraper.Contracts.csproj" />
+  <ProjectReference Include="..\JobDescriptions\TailorCV.JobDescriptions.Contracts\TailorCV.JobDescriptions.Contracts.csproj" />
   <ProjectReference Include="..\Templates\TailorCV.Templates.Contracts\TailorCV.Templates.Contracts.csproj" />
 </ItemGroup>
 
@@ -289,7 +328,7 @@ TailorCV.CVGenerator.Contracts/
               ┌────────────────┼────────────────┐
               │                │                │
     ┌─────────▼──────┐  ┌─────▼──────┐  ┌──────▼──────────┐
-    │  Identity       │  │  Profile   │  │  JobScraper     │
+    │  Identity       │  │  Profile   │  │  JobDescriptions     │
     │  .Contracts     │  │  .Contracts│  │  .Contracts     │
     └───────┬────────┘  └─────┬──────┘  └──────┬──────────┘
             │                 │                │
@@ -300,7 +339,7 @@ TailorCV.CVGenerator.Contracts/
     │  (full module) │  │  (full module)                │
     │                │  │  references:                  │
     │                │  │    Profile.Contracts           │
-    │                │  │    JobScraper.Contracts        │
+    │                │      │  JobDescriptions.Contracts        │
     │                │  │    Templates.Contracts         │
     └───────────────┘  └──────────────────────────────┘
 ```
@@ -796,28 +835,38 @@ public static class ModuleExtensions
 - `GetProfileByUserId(UserIdRequest) → ProfileResponse`
 - `GetProfileById(ProfileIdRequest) → ProfileResponse`
 
-### JobScraper Module
+### JobDescriptions Module
 
-**Schema:** `jobscraper`  
+**Schema:** `jobdescriptions`  
 **Responsibilities:** Job description parsing, URL scraping, JD storage
+
+**Architecture:** API module + separate Worker process (Wolverine host)
+
+API publishes commands to `job-description.commands` queue → Worker consumes → OpenAI/Playwright → publishes events to `job-description.events` queue → API handlers update DB.
 
 | Feature | Type | Endpoint | Description |
 |---------|------|----------|-------------|
-| ParseJobDescription | Command | `POST /api/jobs/parse` | Parse raw text via AI |
-| ScrapeJobUrl | Command | `POST /api/jobs/scrape` | Playwright scrape + AI parse |
-| SaveJobDescription | Command | `POST /api/jobs` | Save parsed JD |
+| ParseJobDescription | Command | `POST /api/jobs/parse` | Publish `ParseJobText` command → Worker handles OpenAI parsing |
+| ScrapeJobDescription | Command | `POST /api/jobs/scrape` | Publish `ScrapeJobUrl` command → Worker handles Playwright + OpenAI |
+| GetParseStatus | Query | `GET /api/jobs/parse/{parseId}/status` | Poll parse job status |
+| SaveJobDescription | Command | `POST /api/jobs` | Save parsed JD to DB (synchronous, no messaging) |
 | ListJobs | Query | `GET /api/jobs` | Paginated JD list |
 | GetJob | Query | `GET /api/jobs/{id}` | Get full JD |
 
 **Domain Entities:**
-- `JobDescription` — Id, UserId, Title, Company, Location, RequiredSkills (JSONB), Responsibilities (JSONB), Qualifications (JSONB), SeniorityLevel, Label, RawText, SourceUrl, CreatedAt
+- `JobDescription` — Id, UserId, Title, Company, Location, RequiredSkills (JSONB), Responsibilities (JSONB), Qualifications (JSONB), SeniorityLevel, SourceUrl, Label, RawText, CreatedAt, UpdatedAt
+- `ParseJob` — Id, UserId, Type (ManualText/UrlScrape), RawText, Status (Queued/Processing/Done/Failed), ParsedData (JSONB), Error, SourceUrl, CreatedAt, CompletedAt
 
-**Infrastructure:**
-- `JobScraperDbContext` (schema: `jobscraper`)
-- `PlaywrightScrapingService` — headless browser scraping
-- `JobDescriptionParserService` — OpenAI API for structured extraction
+**Infrastructure (API):**
+- `JobDescriptionsDbContext` (schema: `jobdescriptions`)
+- Wolverine handlers: `JobParsingCompletedHandler`, `JobParsingFailedHandler` — update ParseJob status from worker events
 
-**gRPC Service:** `jobscraper.proto`
+**Infrastructure (Worker):**
+- `PlaywrightScrapingService` — headless Chromium, stealth, per-domain rate limiting
+- `OpenAiJobParserService` — ChatClient with JSON schema response format
+- `DomainRateLimiter` — TokenBucket per domain
+
+**gRPC Service:** `jobdescriptions.proto`
 - `GetJobById(JobIdRequest) → JobDescriptionResponse`
 
 ### Templates Module
@@ -1132,12 +1181,12 @@ Each module has its own PostgreSQL schema. Tables are prefixed by module:
  │   ├── languages
  │   ├── custom_sections
  │   ├── section_orders
- │   └── parse_jobs
- │
-  ├── jobscraper schema
+│   └── parse_jobs
+  │
+  ├── jobdescriptions schema
   │   ├── job_descriptions
   │   └── parse_jobs                                    # Async parsing status tracking
- │
+  │
  ├── templates schema
  │   └── templates
  │
@@ -1282,14 +1331,14 @@ message LanguageResponse {
 }
 ```
 
-### jobscraper.proto
+### jobdescriptions.proto
 
 ```protobuf
 syntax = "proto3";
 
-package jobscraper;
+package jobdescriptions;
 
-service JobScraperService {
+service JobDescriptionsService {
   rpc GetJobById (JobIdRequest) returns (JobDescriptionResponse);
 }
 
@@ -1380,10 +1429,16 @@ message GeneratedCVResponse {
 │  .Profile.Contracts  │                              │  ref: .Profile.Contracts │
 └──────────────────────┘                              └──────────────────┘
 
-┌──────────────────────┐  JobDescriptionSavedEvent    ┌──────────────────┐
-│  JobScraper          │ ────────────────────────────→ │  CVGenerator     │
+┌──────────────────────┐  JobParsingCompleted        ┌──────────────────┐
+│  JobDescriptions     │ ────────────────────────────→ │  CVGenerator     │
 │  publishes from:     │                              │   listens via:   │
-│  .JobScraper.Contracts │                            │  ref: .JobScraper.Contracts │
+│  .JobDescriptions.Contracts │                            │  ref: .JobDescriptions.Contracts │
+└──────────────────────┘                              └──────────────────┘
+
+┌──────────────────────┐  JobParsingFailed           ┌──────────────────┐
+│  JobDescriptions     │ ────────────────────────────→ │  CVGenerator     │
+│  (on parse failure)  │                              │   listens via:   │
+│  .JobDescriptions.Contracts │                            │  ref: .JobDescriptions.Contracts │
 └──────────────────────┘                              └──────────────────┘
 ```
 
@@ -1393,7 +1448,8 @@ Each module that publishes events defines them in its own `.Contracts` project. 
 
 ```
 TailorCV.Profile.Contracts/Events/ProfileUpdatedEvent.cs
-TailorCV.JobScraper.Contracts/Events/JobDescriptionSavedEvent.cs
+TailorCV.JobDescriptions.Contracts/Events/JobParsingCompleted.cs
+TailorCV.JobDescriptions.Contracts/Events/JobParsingFailed.cs
 TailorCV.CVGenerator.Contracts/Events/CVGeneratedEvent.cs
 ```
 
@@ -1401,8 +1457,9 @@ TailorCV.CVGenerator.Contracts/Events/CVGeneratedEvent.cs
 // TailorCV.Profile.Contracts — published when profile is created/updated
 public record ProfileUpdatedEvent(Guid UserId, Guid ProfileId, DateTime UpdatedAt);
 
-// TailorCV.JobScraper.Contracts — published when a JD is saved/parsed
-public record JobDescriptionSavedEvent(Guid JobId, Guid UserId, string Title, DateTime SavedAt);
+// TailorCV.JobDescriptions.Contracts — published when a JD parse completes (success or failure)
+public record JobParsingCompleted(Guid ParseJobId, ParsedJobDataDto Data, string? RawText = null, Uri? SourceUrl = null);
+public record JobParsingFailed(Guid ParseJobId, string Error);
 
 // TailorCV.CVGenerator.Contracts — published when a CV is generated
 public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt);
@@ -1412,10 +1469,10 @@ public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int Matc
 
 | Module | References |
 |--------|-----------|
-| CVGenerator | `TailorCV.Profile.Contracts`, `TailorCV.JobScraper.Contracts`, `TailorCV.Templates.Contracts` |
+| CVGenerator | `TailorCV.Profile.Contracts`, `TailorCV.JobDescriptions.Contracts`, `TailorCV.Templates.Contracts` |
 | Dashboard (if separate) | `TailorCV.CVGenerator.Contracts` |
 | Profile | `TailorCV.Identity.Contracts` (for user name via gRPC — not events) |
-| JobScraper | _(none — no incoming events)_ |
+| JobDescriptions | _(none — no incoming events)_ |
 | Templates | _(none — no incoming events)_ |
 | Identity | _(none — publishes no events)_ |
 
@@ -1427,7 +1484,7 @@ public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int Matc
 GenerateCV command received
   │
   ├── gRPC: Fetch Profile from Profile module
-  ├── gRPC: Fetch JobDescription from JobScraper module
+  ├── gRPC: Fetch JobDescription from JobDescriptions module
   ├── gRPC: Fetch Template from Templates module
   ├── AI: Tailor CV content (OpenAI)
   ├── AI: Calculate match score (OpenAI)

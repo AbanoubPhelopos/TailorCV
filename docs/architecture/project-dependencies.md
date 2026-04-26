@@ -14,8 +14,8 @@ graph TD
     PROFILE[TailorCV.Profile<br/>classlib]
     PR_CON[TailorCV.Profile.Contracts<br/>classlib]
 
-    JOBS[TailorCV.JobScraper<br/>classlib]
-    JS_CON[TailorCV.JobScraper.Contracts<br/>classlib]
+    JOBS[TailorCV.JobDescriptions<br/>classlib]
+    JS_CON[TailorCV.JobDescriptions.Contracts<br/>classlib]
 
     TMPL[TailorCV.Templates<br/>classlib]
     TM_CON[TailorCV.Templates.Contracts<br/>classlib]
@@ -130,14 +130,13 @@ graph LR
         P9[Grpc.Net.Client]
     end
 
-    subgraph JOBS["TailorCV.JobScraper"]
+    subgraph JOBS["TailorCV.JobDescriptions"]
         J1[Microsoft.EntityFrameworkCore]
         J2[Npgsql.EntityFrameworkCore.PostgreSQL]
         J3[EFCore.NamingConventions]
         J4[FluentValidation.DependencyInjectionExtensions]
-        J5[Hangfire.AspNetCore]
-        J6[Microsoft.Playwright]
-        J7[OpenAI]
+        J5[Microsoft.Playwright]
+        J6[OpenAI]
     end
 
     subgraph TMPL["TailorCV.Templates"]
@@ -168,12 +167,12 @@ graph LR
 | Package | Purpose | Used In |
 |---------|---------|---------|
 | Scrutor | Assembly scanning & decorator registration | Shared |
-| FluentValidation.DependencyInjectionExtensions | FluentValidation DI integration | Shared, Identity, Profile, JobScraper, Templates, CVGenerator |
+| FluentValidation.DependencyInjectionExtensions | FluentValidation DI integration | Shared, Identity, Profile, JobDescriptions, Templates, CVGenerator |
 | WolverineFx | Message bus (event publishing/sagas) | Shared, Api, CVGenerator |
 | WolverineFx.RabbitMQ | RabbitMQ transport for Wolverine | Api |
-| Microsoft.EntityFrameworkCore | ORM | Infrastructure, Identity, Profile, JobScraper, Templates, CVGenerator |
-| Npgsql.EntityFrameworkCore.PostgreSQL | PostgreSQL provider | Infrastructure, Identity, Profile, JobScraper, Templates, CVGenerator |
-| EFCore.NamingConventions | Snake_case naming convention | Infrastructure, Identity, Profile, JobScraper, Templates, CVGenerator |
+| Microsoft.EntityFrameworkCore | ORM | Infrastructure, Identity, Profile, JobDescriptions, Templates, CVGenerator |
+| Npgsql.EntityFrameworkCore.PostgreSQL | PostgreSQL provider | Infrastructure, Identity, Profile, JobDescriptions, Templates, CVGenerator |
+| EFCore.NamingConventions | Snake_case naming convention | Infrastructure, Identity, Profile, JobDescriptions, Templates, CVGenerator |
 | StackExchange.Redis | Redis client | Infrastructure |
 | Microsoft.Extensions.Caching.StackExchangeRedis | Redis caching integration | Infrastructure |
 | AWSSDK.S3 | S3 presigned URLs (RustFS) | Infrastructure |
@@ -198,7 +197,7 @@ graph LR
 | Microsoft.AspNetCore.Authentication.JwtBearer | JWT authentication | Api |
 | Grpc.AspNetCore | gRPC server | Api |
 | Grpc.Net.Client | gRPC client | Profile, CVGenerator |
-| Hangfire.AspNetCore | Background jobs | Api, Profile, JobScraper |
+| Hangfire.AspNetCore | Background jobs | Api, Profile |
 | Hangfire.PostgreSql | Hangfire PostgreSQL storage | Api |
 | AspNetCore.HealthChecks.UI.Client | Health check UI response | Api |
 | Microsoft.AspNetCore.OpenApi | OpenAPI document generation + Scalar UI | Api |
@@ -208,8 +207,8 @@ graph LR
 | System.IdentityModel.Tokens.Jwt | JWT token creation | Identity |
 | PdfPig | PDF text extraction | Profile |
 | DocumentFormat.OpenXml | DOCX text extraction | Profile |
-| OpenAI | AI integration | Profile, JobScraper, CVGenerator |
-| Microsoft.Playwright | Web scraping | JobScraper |
+| OpenAI | AI integration | Profile, JobDescriptions, CVGenerator |
+| Microsoft.Playwright | Web scraping | JobDescriptions |
 | PuppeteerSharp | HTML-to-PDF conversion | CVGenerator |
 | SonarAnalyzer.CSharp | Static code analysis (global) | Directory.Build.props |
 
@@ -221,6 +220,6 @@ All `.Contracts` projects contain **only** plain data types (event records, DTOs
 |-------------------|-----------|----------|
 | TailorCV.Identity.Contracts | Shared | (empty — no events yet) |
 | TailorCV.Profile.Contracts | Shared | `ProfileUpdatedEvent` |
-| TailorCV.JobScraper.Contracts | Shared | `JobDescriptionSavedEvent` |
+| TailorCV.JobDescriptions.Contracts | Shared | `JobParsingCompleted`, `JobParsingFailed` |
 | TailorCV.Templates.Contracts | Shared | (empty — no events yet) |
 | TailorCV.CVGenerator.Contracts | Shared | (empty — not yet implemented) |
