@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -51,7 +52,7 @@ builder.Host.UseWolverine(opts =>
 
     opts.ListenToRabbitQueue("profile.events");
 
-    opts.ApplicationAssembly = typeof(TailorCV.Profile.ModuleExtensions).Assembly;
+    opts.ApplicationAssembly = typeof(TailorCV.Api.ModuleMarker).Assembly;
     opts.ServiceName = "TailorCV.Api";
 });
 

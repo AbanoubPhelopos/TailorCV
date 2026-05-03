@@ -123,24 +123,50 @@
 - Returns updated profile
 
 #### P-4: Manage Sections
-**As a** user  
-**I want to** add, edit, reorder, and remove sections  
-**So that** I can structure my profile the way I want  
+**As a** user
+**I want to** add, edit, reorder, and remove sections
+**So that** I can structure my profile the way I want
 
 **Acceptance Criteria:**
-- POST `/api/profiles/me/experiences` — add experience
-- PUT `/api/profiles/me/experiences/{id}` — edit experience
-- DELETE `/api/profiles/me/experiences/{id}` — remove experience
-- PATCH `/api/profiles/me/sections/reorder` — reorder sections `{ sectionType, sectionId, newPosition }`
-- Same CRUD for: projects, skills, education, certifications, languages
-- Each section type has its own schema:
+- PUT `/api/profiles/me/sections` — bulk upsert all sections (full state replacement)
+  - `id: null` — creates new section
+  - `id: "guid"` — updates existing section
+  - Sections not in request are deleted
+  - `order` field handles reordering (sequential 1..N)
+  - `sectionType` cannot be changed on existing sections
+- Single atomic transaction — all or nothing
+- Returns updated sections + computed `completeness` percentage
 
-**Experience:** `{ company, role, startDate, endDate, description, isCurrent }`  
-**Projects:** `{ name, description, techStack[], role, url, startDate, endDate }`  
-**Skills:** `{ category, items[] }` (e.g., category: "Languages", items: ["C#", "Python"])  
-**Education:** `{ institution, degree, field, startDate, endDate, gpa? }`  
-**Certifications:** `{ name, issuer, date, expiryDate?, url? }`  
-**Languages:** `{ language, proficiency }` (proficiency: Beginner/Intermediate/Advanced/Native)
+**Section schema (shared across all types):**
+```json
+{
+  "id": null,
+  "sectionType": "Experience",
+  "order": 1,
+  "data": {
+    "company": "Google",
+    "role": "Senior Engineer",
+    "startDate": "2022-01-01",
+    "endDate": null,
+    "description": "...",
+    "isCurrent": true
+  }
+}
+```
+
+**Data per sectionType:**
+
+| SectionType | Fields |
+|-------------|--------|
+| Experience | company\*, role\*, startDate\*, endDate, description, isCurrent |
+| Project | name\*, description, techStack[], role, url, startDate, endDate |
+| Skill | category\*, items[] |
+| Education | institution\*, degree\*, field\*, startDate\*, endDate, gpa |
+| Certification | name\*, issuer\*, date\*, expiryDate, url |
+| Language | languageName\*, proficiency\* |
+| Custom | title\*, items[] |
+
+\* = required field
 
 #### P-5: Import Profile from Resume
 **As a** user  

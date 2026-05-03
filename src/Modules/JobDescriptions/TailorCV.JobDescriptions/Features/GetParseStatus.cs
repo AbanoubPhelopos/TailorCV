@@ -6,6 +6,7 @@ using TailorCV.JobDescriptions.Domain;
 using TailorCV.JobDescriptions.Domain.Enums;
 using TailorCV.JobDescriptions.Infrastructure;
 using TailorCV.Shared.CQRS;
+using TailorCV.Shared.Interfaces;
 using TailorCV.Shared.Results;
 
 namespace TailorCV.JobDescriptions.Features;
@@ -21,12 +22,12 @@ public static class GetParseStatus
         string? RawText = null,
         Uri? SourceUrl = null);
 
-    public class Handler(JobDescriptionsDbContext dbContext) : IQueryHandler<Request, Response>
+    public class Handler(JobDescriptionsDbContext dbContext, ICurrentUserService currentUser) : IQueryHandler<Request, Response>
     {
         public async Task<Result<Response>> HandleAsync(Request query, CancellationToken ct)
         {
             ParseJob? parseJob = await dbContext.ParseJobs
-                .FirstOrDefaultAsync(p => p.Id == query.ParseId, ct);
+                .FirstOrDefaultAsync(p => p.Id == query.ParseId && p.UserId == currentUser.UserId, ct);
 
             if (parseJob is null)
             {

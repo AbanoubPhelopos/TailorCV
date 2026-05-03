@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
@@ -38,24 +39,34 @@ public sealed class PlaywrightScrapingService : IPlaywrightScrapingService, IAsy
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        string domain = DomainExtractor.Extract(url);
-        using RateLimitLease lease = await _domainRateLimiter.AcquireAsync(domain, ct);
+        const int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            string domain = DomainExtractor.Extract(url);
+            using RateLimitLease lease = await _domainRateLimiter.AcquireAsync(domain, ct);
 
-        if (!lease.IsAcquired)
-        {
-            await Task.Delay(500, ct);
-            return await ScrapeAsync(url, ct);
+            if (!lease.IsAcquired)
+            {
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(500, ct);
+                    continue;
+                }
+                throw new InvalidOperationException($"Rate limit exceeded for domain after {maxRetries} attempts: {domain}");
+            }
+
+            await _concurrencyLimiter.WaitAsync(ct);
+            try
+            {
+                return await ScrapePageAsync(url, ct);
+            }
+            finally
+            {
+                _concurrencyLimiter.Release();
+            }
         }
 
-        await _concurrencyLimiter.WaitAsync(ct);
-        try
-        {
-            return await ScrapePageAsync(url, ct);
-        }
-        finally
-        {
-            _concurrencyLimiter.Release();
-        }
+        return await ScrapePageAsync(url, ct);
     }
 
     private async Task<string> ScrapePageAsync(Uri url, CancellationToken ct)
@@ -107,12 +118,10 @@ public sealed class PlaywrightScrapingService : IPlaywrightScrapingService, IAsy
 
     private static string CleanHtml(string html)
     {
-        return html
+        return Regex.Replace(html
             .Replace(Environment.NewLine, " ")
             .Replace("\n", " ")
-            .Replace("\r", " ")
-            .Replace("\\s+", " ")
-            .Trim();
+            .Replace("\r", " "), @"\s+", " ").Trim();
     }
 
     public async ValueTask DisposeAsync()

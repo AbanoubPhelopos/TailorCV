@@ -72,35 +72,64 @@
 
 ## Templates
 
-- Browse available CV templates
-- Preview template with sample data
-- Template categories/styles (minimal, professional, creative, etc.)
-- Admin dashboard for managing templates
-- Initial DB seed with default templates
+### User Features
+- Browse available CV templates (filterable by category/style)
+- Preview template with sample placeholder data (rendered HTML)
+- Select template when generating a CV (template ID passed to generation endpoint)
 
-### Future
-- Custom template upload
+### Admin Features
+- Upload template thumbnails via presigned S3 URL (2 MB max, PNG/JPEG/WebP)
+- Create new templates (HTML/CSS content + metadata + uploaded thumbnail)
+- Update existing templates (full replacement of content/metadata + optional new thumbnail)
+- Disable templates (soft-delete — hidden from users, reactivatable)
+- Templates have: name, description, htmlContent, cssContent, thumbnailUrl, category, style, isActive
+
+### Categories & Styles
+- **Categories:** minimal, professional, creative
+- **Styles:** modern, classic, bold
+
+### Seeding
+- On first migration, 3-5 default templates are inserted (one per category)
+- Seeded via `TemplateSeeder` on startup
+
+### Deferred
+- Custom template upload by users
+- Template versioning
 
 ---
 
 ## CVGenerator
 
-### Core
-- Select profile + job description + template → generate tailored CV
-- AI-powered tailoring with custom summary/objective per JD
-- Cover letter generation
-- Match score (how well the profile matches the JD)
+### Generation
+- Select profile + job description + template → generate tailored CV (async)
+- AI-powered tailoring with natural language prompt steering (`tailoringPrompt`)
+- Match score included in generation response (algorithmic: skills overlap, seniority match)
+- Cover letter generation (tied to an existing CV, async)
+- Profile and JD data snapshotted at generation time (decoupled from later edits)
+
+### Editing & Preview
+- Edit AI-generated content before export (`PUT /api/cv/{id}/content`)
+- Client-side preview rendering: frontend combines CV content JSON + template HTML/CSS in iframe
+- Content edits invalidate cached PDFs (re-export required)
 
 ### Export
-- Export as PDF via Puppeteer (HTML → PDF)
+- Export as PDF via PuppeteerSharp (async, cached until content changes)
+- PDF stored in S3 (RustFS), served as download
 
-### Management
-- Save generated CVs for re-download (versioning)
-- Regenerate with a different template
-- CV generation history
+### History & Management
+- All generated CVs saved to history automatically
+- Regenerate with a different template or new tailoring prompt (creates new CV, original preserved)
+- Paginated CV history list
+- Full CV details including snapshots, content, match score, cover letter
+
+### Async Operations (Wolverine)
+- CV generation, cover letter generation, and PDF export are all async with polling
+- Background handlers fetch data via gRPC (Profile, JobDescriptions, Templates modules)
 
 ### Future
+- Standalone match score endpoint
 - Export as DOCX
+- Delete generated CVs
 
 ---
 

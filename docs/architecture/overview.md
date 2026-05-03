@@ -805,10 +805,7 @@ public static class ModuleExtensions
 | CreateProfile | Command | `POST /api/profiles` | Create user profile |
 | UpdateProfile | Command | `PUT /api/profiles/me` | Update profile fields |
 | GetProfile | Query | `GET /api/profiles/me` | Get user's full profile |
-| AddSection | Command | `POST /api/profiles/me/sections` | Add a section (any type: experience, project, skill, etc.) |
-| UpdateSection | Command | `PUT /api/profiles/me/sections/{id}` | Update a section by ID |
-| RemoveSection | Command | `DELETE /api/profiles/me/sections/{id}` | Remove a section by ID |
-| ReorderSections | Command | `PUT /api/profiles/me/sections/reorder` | Reorder sections via SectionOrder |
+| UpdateSections | Command | `PUT /api/profiles/me/sections` | Bulk upsert all sections (add, update, remove, reorder) |
 | ImportResumeGetUploadUrl | Command | `POST /api/profiles/me/import/upload-url` | Get RustFS presigned upload URL |
 | ImportResumeParse | Command | `POST /api/profiles/me/import/parse` | Trigger AI resume parsing (Hangfire) |
 | ImportResumeParseStatus | Query | `GET /api/profiles/me/import/parse/{parseId}/status` | Poll parsing job status |

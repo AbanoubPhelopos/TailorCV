@@ -1,4 +1,20 @@
 services:
+  profile-worker:
+    build:
+      context: ..
+      dockerfile: src/Modules/Profile/TailorCV.Profile.Worker/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - DOTNET_URLS=http://+:8080
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tailorcv-network
+
   worker:
     build:
       context: ..
@@ -89,8 +105,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      RUSTFS_ROOT_USER: ${S3__AccessKey}
-      RUSTFS_ROOT_PASSWORD: ${S3__SecretKey}
+      RUSTFS_ACCESS_KEY: ${S3__AccessKey}      # ← was RUSTFS_ROOT_USER
+      RUSTFS_SECRET_KEY: ${S3__SecretKey}      # ← was RUSTFS_ROOT_PASSWORD
       RUSTFS_BROWSER: "on"
     volumes:
       - rustfs-data:/data
