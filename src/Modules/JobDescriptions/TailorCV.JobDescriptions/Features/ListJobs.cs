@@ -76,6 +76,7 @@ public static class ListJobs
         .WithName("ListJobs")
         .WithSummary("List saved job descriptions")
         .WithDescription("Returns a paginated list of the user's saved job descriptions.")
+        .Produces<OffsetPagedList<ResponseItem>>()
         .RequireAuthorization();
     }
 }

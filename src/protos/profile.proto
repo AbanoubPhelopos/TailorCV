@@ -1,1 +1,26 @@
+syntax = "proto3";
 
+option csharp_namespace = "TailorCV.Profile.Contracts.Grpc";
+
+package profile;
+
+service ProfileService {
+  rpc GetProfileById (GetProfileByIdRequest) returns (GetProfileByIdResponse);
+}
+
+message GetProfileByIdRequest {
+  string id = 1;
+}
+
+message GetProfileByIdResponse {
+  string id = 1;
+  string user_id = 2;
+  string headline = 3;
+  string summary = 4;
+  string phone = 5;
+  string location = 6;
+  string website = 7;
+  string linkedin_url = 8;
+  string github_url = 9;
+  string sections_json = 10;
+}

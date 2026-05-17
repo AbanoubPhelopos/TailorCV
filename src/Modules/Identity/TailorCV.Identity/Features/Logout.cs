@@ -45,6 +45,7 @@ public static class Logout
         .WithTags("Identity")
         .WithName("Logout")
         .WithSummary("Revoke refresh token")
-        .WithDescription("Revokes the given refresh token. Requires a valid access token.");
+        .WithDescription("Revokes the given refresh token. Requires a valid access token.")
+        .Produces(200);
     }
 }

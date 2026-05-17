@@ -66,7 +66,7 @@ GET /api/profiles/shared/{shareId}
 - **Excluded from visitor view:** phone, email, userId, internal IDs, shareId, completeness
 - Sections ordered by `SectionOrder`
 - Different response shape than owner's `GetProfile` (visitor view has less data, includes firstName/lastName instead of userId)
-- First name and last name are fetched from Identity module via **gRPC** (`IdentityService.GetUserById`)
+- First name and last name are read from the local `profile.users` table (populated asynchronously via events from Identity module)
 
 ## Flow
 
@@ -77,22 +77,32 @@ GET /api/profiles/shared/{shareId}
    - Check `isShared = true` → 404 if disabled
    - Load all sections by profileId
    - Load `SectionOrder` entries
-   - Call Identity gRPC to get user's firstName and lastName
+   - Load ProfileUser for firstName and lastName from local `profile.users` table
    - Map to visitor response (exclude sensitive fields)
    - Return result
 4. **LoggingDecorator** logs result
 
 ## Inter-module Interactions
 
-### Sync — gRPC Call to Identity Module
+**None directly.** The shared profile handler reads user name data from a local `users` table in the `profile` schema. This table is populated asynchronously via events from the Identity module.
+
+### Event-Driven User Data
+
+The Profile module maintains a lightweight `ProfileUser` record (userId, firstName, lastName) in its own schema, populated via Wolverine events:
+
+| Event | Published By | Profile Module Reaction |
+|-------|-------------|------------------------|
+| `UserRegistered` | Identity module (on registration) | Create ProfileUser record |
+| `UserNameUpdated` | Identity module (on name update) | Update ProfileUser record |
 
 ```mermaid
 graph LR
-    A[GetSharedProfile Handler] -->|gRPC: GetUserById| B[Identity Module]
-    B -->|UserResponse| A
+    A[Identity Module] -->|UserRegistered| B[RabbitMQ]
+    A -->|UserNameUpdated| B
+    B -->|deliver| C[Profile Event Handlers]
+    C -->|create/update| D[profile.users table]
+    E[GetSharedProfile Handler] -->|read| D
 ```
-
-The handler needs `firstName` and `lastName` for the visitor view. This is fetched synchronously from the Identity module via gRPC.
 
 ## Diagrams
 
@@ -105,7 +115,6 @@ sequenceDiagram
     participant L as LoggingDecorator
     participant H as Handler
     participant DB as ProfileDbContext
-    participant GRPC as Identity gRPC
 
     V->>API: GET /api/profiles/shared/{shareId}
     API->>L: HandleAsync(request)
@@ -122,8 +131,7 @@ sequenceDiagram
     end
     H->>DB: Load all sections by profileId
     H->>DB: Load SectionOrder entries
-    H->>GRPC: GetUserById(userId)
-    GRPC-->>H: { firstName, lastName }
+    H->>DB: Load ProfileUser by userId
     H->>H: Map to visitor view (exclude sensitive fields)
     H-->>L: Result.Success(VisitorProfileResponse)
     L-->>V: 200 OK
@@ -138,7 +146,7 @@ flowchart TD
     B -->|Yes| D{isShared = true?}
     D -->|No| C
     D -->|Yes| E[Load all sections]
-    E --> F[gRPC: Get user firstName + lastName]
+    E --> F[Load ProfileUser for firstName + lastName]
     F --> G[Map to visitor view<br/>exclude phone, email, IDs]
     G --> H[Return 200]
 ```

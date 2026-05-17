@@ -79,6 +79,7 @@ public static class ExportProfile
             .WithTags("Profile")
             .WithName("ExportProfile")
             .WithSummary("Export profile as JSON")
-            .WithDescription("Exports the user's full profile data as a downloadable JSON file.");
+            .WithDescription("Exports the user's full profile data as a downloadable JSON file.")
+            .Produces<Response>();
     }
 }

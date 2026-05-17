@@ -8,6 +8,7 @@ public class ProfileDbContext : DbContext
 {
     public DbSet<Domain.Profile> Profiles => Set<Domain.Profile>();
     public DbSet<ParseJob> ParseJobs => Set<ParseJob>();
+    public DbSet<Domain.ProfileUser> Users => Set<Domain.ProfileUser>();
 
     public ProfileDbContext(DbContextOptions<ProfileDbContext> options) : base(options) { }
 

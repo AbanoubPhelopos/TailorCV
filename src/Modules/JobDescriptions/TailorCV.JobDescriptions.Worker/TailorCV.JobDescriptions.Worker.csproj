@@ -1,18 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <UserSecretsId>146c87e8-0312-48ab-93bd-88352e90ee87</UserSecretsId>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\TailorCV.JobDescriptions.Contracts\TailorCV.JobDescriptions.Contracts.csproj" />
     <ProjectReference Include="..\..\..\TailorCV.Shared\TailorCV.Shared.csproj" />
+    <ProjectReference Include="..\..\..\TailorCV.Infrastructure\TailorCV.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Playwright" />
-    <PackageReference Include="OpenAI" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.RabbitMQ" />

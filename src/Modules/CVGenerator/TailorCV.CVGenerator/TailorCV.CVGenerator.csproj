@@ -9,20 +9,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="EFCore.NamingConventions" />
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Grpc.AspNetCore" />
     <PackageReference Include="Grpc.Net.Client" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-    <PackageReference Include="OpenAI" />
-    <PackageReference Include="PuppeteerSharp" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.RabbitMQ" />
   </ItemGroup>
-
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
 
 </Project>

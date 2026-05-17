@@ -15,6 +15,8 @@ namespace TailorCV.Profile.Features;
 public static class GetSharedProfile
 {
     public record Response(
+        string FirstName,
+        string LastName,
         string Headline,
         string Summary,
         string Location,
@@ -38,7 +40,12 @@ public static class GetSharedProfile
                 return Result<Response>.Failure(ProfileErrors.ProfileNotFound);
             }
 
+            ProfileUser? user = await dbContext.Users
+                .FirstOrDefaultAsync(u => u.UserId == profile.UserId, ct);
+
             return Result<Response>.Success(new Response(
+                user?.FirstName ?? string.Empty,
+                user?.LastName ?? string.Empty,
                 profile.Headline, profile.Summary, profile.Location,
                 profile.Website, profile.LinkedinUrl, profile.GithubUrl,
                 profile.Sections.ToSectionDataList()));
@@ -60,6 +67,7 @@ public static class GetSharedProfile
         .WithTags("Profile")
         .WithName("GetSharedProfile")
         .WithSummary("Get shared profile")
-        .WithDescription("Public endpoint that returns a read-only visitor view of a shared profile. No authentication required.");
+        .WithDescription("Public endpoint that returns a read-only visitor view of a shared profile. No authentication required.")
+        .Produces<Response>();
     }
 }

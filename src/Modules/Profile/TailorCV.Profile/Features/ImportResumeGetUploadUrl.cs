@@ -73,6 +73,7 @@ public static class ImportResumeGetUploadUrl
         .WithTags("Profile")
         .WithName("ImportResumeGetUploadUrl")
         .WithSummary("Get presigned upload URL")
-        .WithDescription("Returns a presigned S3 POST URL and fields for uploading a resume file.");
+        .WithDescription("Returns a presigned S3 POST URL and fields for uploading a resume file.")
+        .Produces<Response>();
     }
 }

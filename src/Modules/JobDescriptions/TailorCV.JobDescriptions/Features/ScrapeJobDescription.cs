@@ -70,6 +70,7 @@ public static class ScrapeJobDescription
         .WithName("ScrapeJobDescription")
         .WithSummary("Scrape a job posting from URL")
         .WithDescription("Uses Playwright to scrape a job posting URL, then AI parses it. Poll status for results.")
+        .Produces<Response>(202)
         .RequireAuthorization();
     }
 }

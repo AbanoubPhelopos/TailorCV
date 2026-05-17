@@ -31,7 +31,7 @@
 - Email must be valid format and unique (409 on duplicate)
 - Password must meet strength rules (min 8 chars, uppercase, lowercase, digit, special)
 - Returns `{ accessToken, refreshToken }` on success (201)
-- Password stored hashed (bcrypt/Argon2)
+- Password stored hashed (PBKDF2 — Rfc2898DeriveBytes.Pbkdf2, HMAC-SHA256, 100k iterations)
 
 #### I-2: Login
 **As a** registered user  
@@ -41,8 +41,7 @@
 **Acceptance Criteria:**
 - POST `/api/auth/login` with `{ email, password }`
 - Returns `{ accessToken, refreshToken }` on success (200)
-- Returns 401 on invalid credentials
-- Returns 404 if email not found
+- Returns 401 on invalid credentials (same error for wrong email and wrong password — prevents email enumeration)
 
 #### I-3: Refresh Token
 **As a** logged-in user  
@@ -174,11 +173,12 @@
 **So that** my profile is auto-filled and I don't have to type everything  
 
 **Acceptance Criteria:**
-- POST `/api/profiles/me/import` with multipart file upload
+- POST `/api/profiles/me/import/upload-url` → get presigned S3 URL
+- Client uploads file directly to RustFS (S3) via presigned URL
+- POST `/api/profiles/me/import/parse` → triggers async AI parsing via Wolverine
+- Poll `GET /api/profiles/me/import/parse/{parseId}/status` until DONE
+- POST `/api/profiles/me/import/confirm` → saves parsed data to profile
 - Supported formats: PDF, DOCX
-- Backend sends file content to OpenAI for structured extraction
-- Returns parsed sections for user review
-- User confirms → sections are saved to profile
 - File size limit: 5MB
 
 #### P-6: Export Profile as JSON
@@ -361,8 +361,8 @@
 **Acceptance Criteria:**
 - POST `/api/cv/generate` with `{ ..., includeCoverLetter: true }`
 - AI generates a cover letter based on profile + JD
-- Cover letter is included in the response
-- Can be generated independently: POST `/api/cv/cover-letter`
+- Cover letter is included in the generation response
+- Can be generated independently for an existing CV: `POST /api/cv/{id}/cover-letter`
 
 #### G-3: Match Score
 **As a** user  
@@ -371,8 +371,8 @@
 
 **Acceptance Criteria:**
 - Included in generation response: `{ matchScore: { percentage, matchingSkills[], missingSkills[] } }`
-- Also available standalone: POST `/api/cv/match-score` with `{ profileId, jobId }`
 - Score based on skills overlap, experience relevance, seniority match
+- Standalone match score endpoint: deferred (not in MVP)
 
 #### G-4: Preview Generated CV
 **As a** user  
@@ -380,9 +380,10 @@
 **So that** I can review it before exporting  
 
 **Acceptance Criteria:**
-- GET `/api/cv/{id}/preview` — returns rendered HTML
-- Full visual render using the selected template
-- User can edit/tweak content fields before final export
+- Preview is rendered **client-side** — no dedicated backend endpoint
+- Frontend fetches CV content via `GET /api/cv/{id}` and template HTML/CSS via `GET /api/templates/{templateId}`
+- Frontend injects CV content into template and renders in sandboxed iframe (`srcdoc`)
+- User can edit/tweak content fields before final export via `PUT /api/cv/{id}/content`
 
 #### G-5: Export as PDF
 **As a** user  
@@ -390,11 +391,15 @@
 **So that** I can submit it with my job application  
 
 **Acceptance Criteria:**
-- GET `/api/cv/{id}/export/pdf`
-- Backend renders HTML via Puppeteer → PDF
+- Async export flow:
+  - `POST /api/cv/{id}/export/pdf` → returns 202 with exportId (or 200 with cached PDF if already exported)
+  - Poll `GET /api/cv/{id}/export/status` until DONE or FAILED
+  - `GET /api/cv/{id}/export/pdf` → download the PDF file
+- Backend renders HTML via PuppeteerSharp → PDF
+- PDF stored in S3 (RustFS), cached until content changes
 - Clean output matching the template design
 - File naming: `{firstName}_{lastName}_{jobTitle}_{date}.pdf`
-- Returns PDF as downloadable file
+- Content edits invalidate cached PDF (re-export required)
 
 #### G-6: Save CV to History
 **As a** user  
@@ -412,10 +417,11 @@
 **So that** I can try different styles  
 
 **Acceptance Criteria:**
-- POST `/api/cv/{id}/regenerate` with `{ templateId }`
-- Same profile + JD, new template
-- Preserves any manual content edits if made
-- Returns new CV with new ID
+- POST `/api/cv/{id}/regenerate` with `{ templateId, tailoringPrompt? }`
+- Reuses original profile + JD snapshots — no re-fetching from other modules
+- Creates a **new** GeneratedCV record (new ID) with fresh AI output
+- Original CV is preserved in history (including any manual edits)
+- Match score is recalculated (same profile + JD → same score)
 
 #### G-8: View CV History
 **As a** user  
@@ -431,17 +437,8 @@
 
 ## 6. Dashboard
 
-### MVP
+### Deferred
 
-#### D-1: User Dashboard
-**As a** user  
-**I want to** see a dashboard with an overview of my activity  
-**So that** I can quickly access key information  
-
-**Acceptance Criteria:**
-- GET `/api/dashboard` — returns:
-  - Profile completeness %
-  - Number of generated CVs
-  - Average match score
-  - Recent activity (last 5 generated CVs)
-  - Quick actions: generate CV, edit profile, submit JD
+| # | Feature | Status |
+|---|---------|--------|
+| D-1 | User Dashboard (profile completeness, recent CVs, average match score, activity feed) | Deferred |

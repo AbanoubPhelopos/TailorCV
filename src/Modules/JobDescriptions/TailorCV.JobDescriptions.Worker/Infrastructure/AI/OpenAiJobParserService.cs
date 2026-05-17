@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
 using TailorCV.JobDescriptions.Contracts.Dto;
+using TailorCV.Infrastructure.AI;
 
 namespace TailorCV.JobDescriptions.Worker.Infrastructure.AI;
 

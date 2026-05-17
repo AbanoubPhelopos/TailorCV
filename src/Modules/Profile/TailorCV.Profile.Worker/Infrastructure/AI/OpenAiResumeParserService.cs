@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
 using TailorCV.Profile.Contracts.Dto;
+using TailorCV.Infrastructure.AI;
 
 namespace TailorCV.Profile.Worker.Infrastructure.AI;
 

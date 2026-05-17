@@ -62,6 +62,7 @@ public static class GetParseStatus
         .WithName("GetParseStatus")
         .WithSummary("Poll parse job status")
         .WithDescription("Returns PROCESSING, DONE with parsed data, or FAILED with error message.")
+        .Produces<Response>()
         .RequireAuthorization();
     }
 }

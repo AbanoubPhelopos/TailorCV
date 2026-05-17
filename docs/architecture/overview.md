@@ -53,7 +53,7 @@
 ├──────────────────────────────────────────────────────────────┤
 │     PostgreSQL (EF Core, separate schemas per module)         │
 ├──────────────────────────────────────────────────────────────┤
-│     Redis │ Serilog │ OpenTelemetry │ Polly │ Hangfire        │
+│     Redis │ Serilog │ OpenTelemetry │ Wolverine │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,10 +61,10 @@
 
 | Scenario | Pattern | Example |
 |----------|---------|---------|
-| Module publishes event | Wolverine + RabbitMQ | CVGenerator publishes `CVGeneratedEvent` |
-| Module reacts to event | Wolverine handler | Dashboard listens to `CVGeneratedEvent` |
+| Module publishes event | Wolverine + RabbitMQ | Identity publishes `UserRegistered` |
+| Module reacts to event | Wolverine handler | Profile listens to `UserRegistered` |
 | Module needs data in real-time | gRPC | CVGenerator fetches Profile data during generation |
-| Module needs data async | Event-driven | Profile publishes `ProfileUpdatedEvent` → CVGenerator listens |
+| Module needs data async | Event-driven | Profile publishes `ProfileUpdated` → CVGenerator listens (future) |
 | Long-running process | Wolverine saga | CV generation pipeline (scrape → parse → generate → export) |
 
 ### When to Use What
@@ -117,34 +117,30 @@ TailorCV/
 │   │   │   └── ResultExtensions.cs              # ToProblemDetails() → IResult
 │   │   ├── Pagination/
 │   │   │   └── OffsetPagedList.cs               # OffsetPagedList<T> + PagingInfo
-│   │   ├── Events/
-│   │   │   └── IntegrationEvent.cs              # IIntegrationEvent marker interface
 │   │   ├── Interfaces/
 │   │   │   ├── ICurrentUserService.cs           # UserId, Email, Role, IsAuthenticated
 │   │   │   └── IDateTimeProvider.cs             # DateTimeOffset UtcNow
 │   │   └── Primitives/
 │   │       └── Entity.cs                        # Base entity (Guid.CreateVersion7())
 │   │
-│   ├── TailorCV.Infrastructure/                 # Shared infrastructure (all stubs)
+│   ├── TailorCV.Infrastructure/                 # Shared infrastructure
 │   │   ├── Persistence/MigrationExtensions.cs
 │   │   ├── Storage/S3Service.cs + S3Configuration.cs
-│   │   ├── OpenTelemetry/TracingConfiguration.cs
+│   │   ├── OpenAi/OpenAiClientExtensions.cs
 │   │   ├── Caching/RedisConfiguration.cs + CacheService.cs
-│   │   ├── Logging/SerilogConfiguration.cs
-│   │   └── Resilience/PollyConfiguration.cs
+│   │   └── Logging/SerilogConfiguration.cs
 │   │
-│   ├── protos/                                  # gRPC contracts (all empty placeholders)
-│   │   ├── identity.proto
+│   ├── protos/                                  # gRPC contracts
 │   │   ├── profile.proto
-│   │   ├── jobdescriptions.proto
-│   │   ├── templates.proto
-│   │   └── cvgenerator.proto
+│   │   ├── jobscraper.proto
+│   │   └── templates.proto
 │   │
 │   └── Modules/
 │       ├── Identity/
 │       │   ├── TailorCV.Identity/               # FULLY IMPLEMENTED
 │       │   │   ├── Features/
 │       │   │   │   ├── Register.cs
+│       │   │   │   ├── UpdateUserName.cs
 │       │   │   │   ├── Login.cs
 │       │   │   │   ├── RefreshToken.cs
 │       │   │   │   └── Logout.cs
@@ -163,20 +159,52 @@ TailorCV/
 │       │   │   │   │   └── RefreshTokenConfiguration.cs
 │       │   │   │   └── Migrations/              # EF Core generated (InitialCreate)
 │       │   │   └── ModuleExtensions.cs          # AddIdentityModule(), TryDecorate(), MigrateIdentityModuleAsync()
+│       │   │   ├── IdentityWolverineExtension.cs  # Publishes UserRegistered/UserNameUpdated to identity.events
+│       │   │   └── AssemblyInfo.cs             # [WolverineModule] for handler discovery
 │       │   └── TailorCV.Identity.Contracts/
-│       │       └── Events/.gitkeep              # (no events published)
+│       │       └── Events/
+│       │           ├── UserRegistered.cs
+│       │           └── UserNameUpdated.cs
 │       │
 │       ├── Profile/
-│       │   ├── TailorCV.Profile/                # STUBS (domain scaffolded, features empty)
-│       │   │   ├── Features/                    # 15 empty namespace stubs
-│       │   │   ├── Domain/                      # Profile, Experience, Project, Skill, Education, etc.
+│       │   ├── TailorCV.Profile/                # FULLY IMPLEMENTED
+│       │   │   ├── Features/
+│       │   │   │   ├── GetSharedProfile.cs     # Includes firstName/lastName from local ProfileUser
+│       │   │   ├── GetProfile.cs
+│       │   │   │   ├── CreateProfile.cs
+│       │   │   │   ├── UpdateProfile.cs
+│       │   │   │   ├── UpdateSections.cs
+│       │   │   │   ├── ShareProfile.cs
+│       │   │   │   ├── GetCompleteness.cs
+│       │   │   │   ├── ExportProfile.cs
+│       │   │   │   ├── ImportResumeGetUploadUrl.cs
+│       │   │   │   ├── ImportResumeParse.cs
+│       │   │   │   ├── ImportResumeParseStatus.cs
+│       │   │   │   ├── ImportResumeConfirm.cs
+│       │   │   │   └── GetSharedProfile.cs
+│       │   │   ├── Domain/
+│       │   │   │   ├── Profile.cs, Experience.cs, Project.cs, Skill.cs, Education.cs, Certification.cs, Language.cs
+│       │   │   │   └── ProfileUser.cs           # UserId, FirstName, LastName (populated via events)
+│       │   │   ├── Events/
+│       │   │   │   ├── UserRegisteredHandler.cs  # Creates ProfileUser on UserRegistered
+│       │   │   │   ├── UserNameUpdatedHandler.cs  # Updates ProfileUser on UserNameUpdated
+│       │   │   │   ├── ResumeParsingCompletedHandler.cs
+│       │   │   │   └── ResumeParsingFailedHandler.cs
 │       │   │   ├── Infrastructure/
-│       │   │   │   ├── ProfileDbContext.cs      # Empty stub
-│       │   │   │   ├── AI/ResumeParserService.cs
-│       │   │   │   └── Configurations/          # Empty directory
-│       │   │   └── ModuleExtensions.cs          # Empty stub
+│       │   │   │   ├── ProfileDbContext.cs      # schema: "profile"
+│       │   │   │   ├── ProfileDbContextFactory.cs
+│       │   │   │   ├── Configurations/          # EF Core entity configs
+│       │   │   │   │   ├── ProfileConfiguration.cs
+│       │   │   │   │   ├── ProfileUserConfiguration.cs
+│       │   │   │   │   └── ...
+│       │   │   │   └── Migrations/
+│       │   │   ├── ProfileWolverineExtension.cs  # Publishes ProfileUpdated, listens on identity.events + profile.events
+│       │   │   └── ModuleExtensions.cs          # AddProfileModule(), MigrateProfileModuleAsync()
 │       │   └── TailorCV.Profile.Contracts/
-│       │       └── Events/ProfileUpdatedEvent.cs  # Empty stub
+│       │       └── Events/
+│       │           ├── ProfileUpdated.cs
+│       │           ├── ResumeParsingCompleted.cs
+│       │           └── ResumeParsingFailed.cs
 │       │
 │       ├── JobDescriptions/
 │       │   ├── TailorCV.JobDescriptions/               # FULLY IMPLEMENTED
@@ -276,23 +304,32 @@ Each module that publishes integration events or exposes DTOs for cross-module c
 
 ```
 TailorCV.Identity.Contracts/
-└── Events/                           # (currently empty — Identity doesn't publish events)
-    # Future: UserRegisteredEvent, UserDeletedEvent, etc.
+└── Events/
+    ├── UserRegistered.cs           # Guid UserId, string FirstName, string LastName
+    └── UserNameUpdated.cs          # Guid UserId, string FirstName, string LastName
 
 TailorCV.Profile.Contracts/
 └── Events/
-    └── ProfileUpdatedEvent.cs        # Guid UserId, Guid ProfileId, DateTime UpdatedAt
+    ├── ProfileUpdated.cs            # Guid UserId, Guid ProfileId, DateTimeOffset UpdatedAt
+    ├── ResumeParsingCompleted.cs     # Guid ParseJobId, ParsedResumeData Data
+    └── ResumeParsingFailed.cs       # Guid ParseJobId, string Error
 
 TailorCV.JobDescriptions.Contracts/
 └── Events/
-    └── JobDescriptionSavedEvent.cs   # (not used — save is synchronous, no event)
+    ├── JobParsingCompleted.cs       # Guid ParseJobId, ParsedJobDataDto Data, string? RawText, Uri? SourceUrl
+    └── JobParsingFailed.cs          # Guid ParseJobId, string Error
 
 TailorCV.Templates.Contracts/
 └── Events/                           # (currently empty — Templates don't publish events)
 
 TailorCV.CVGenerator.Contracts/
 └── Events/
-    └── CVGeneratedEvent.cs           # Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt
+    ├── CVTailoringCompleted.cs      # Guid CVId, ...
+    ├── CVTailoringFailed.cs          # Guid CVId, string Error
+    ├── CoverLetterCompleted.cs      # Guid CVId, ...
+    ├── CoverLetterFailed.cs         # Guid CVId, string Error
+    ├── CvPdfExportCompleted.cs      # Guid CVId, ...
+    └── CvPdfExportFailed.cs         # Guid CVId, string Error
 ```
 
 ### Contracts Project Dependencies (.csproj)
@@ -305,15 +342,18 @@ TailorCV.CVGenerator.Contracts/
   <ProjectReference Include="..\Templates\TailorCV.Templates.Contracts\TailorCV.Templates.Contracts.csproj" />
 </ItemGroup>
 
-<!-- TailorCV.Profile.csproj — only needs Identity contracts for gRPC responses -->
+<!-- TailorCV.Profile.csproj — needs Identity contracts for user events -->
 <ItemGroup>
   <ProjectReference Include="..\Identity\TailorCV.Identity.Contracts\TailorCV.Identity.Contracts.csproj" />
 </ItemGroup>
 
-<!-- Contracts projects themselves — NO references to other TailorCV projects -->
-<!-- TailorCV.Profile.Contracts.csproj -->
+<!-- Contracts projects themselves — NO references to other TailorCV projects, NO NuGet packages except Google.Protobuf/Grpc.Tools for proto generation -->
+<!-- Example: TailorCV.Profile.Contracts.csproj -->
 <ItemGroup>
-  <PackageReference Include="Wolverine" />  <!-- only if event base types are needed -->
+  <ProjectReference Include="..\..\..\TailorCV.Shared\TailorCV.Shared.csproj" />
+  <PackageReference Include="Google.Protobuf" />
+  <PackageReference Include="Grpc.AspNetCore" />
+  <PackageReference Include="Grpc.Tools" />
 </ItemGroup>
 ```
 
@@ -782,6 +822,7 @@ public static class ModuleExtensions
 | Login | Command | `POST /api/auth/login` | Authenticate, return JWT |
 | RefreshToken | Command | `POST /api/auth/refresh` | Rotate refresh token |
 | Logout | Command | `POST /api/auth/logout` | Client-side token discard |
+| UpdateUserName | Command | `PUT /api/auth/user/name` | Update first/last name (requires auth) |
 
 **Domain Entities:**
 - `User` — Id, Email, PasswordHash, FirstName, LastName, Role, CreatedAt
@@ -792,8 +833,11 @@ public static class ModuleExtensions
 - `JwtService` — token generation/validation
 - PasswordHasher — PBKDF2 (Rfc2898DeriveBytes.Pbkdf2, HMAC-SHA256, 100k iterations, 128-bit salt, 256-bit hash)
 
-**gRPC Service:** `identity.proto`
-- `GetUserById(UserIdRequest) → UserResponse`
+**gRPC Service:** None (Identity publishes events via Wolverine instead)
+
+**Published Events:**
+- `UserRegistered(userId, firstName, lastName)` — published on registration
+- `UserNameUpdated(userId, firstName, lastName)` — published on name update
 
 ### Profile Module
 
@@ -807,7 +851,7 @@ public static class ModuleExtensions
 | GetProfile | Query | `GET /api/profiles/me` | Get user's full profile |
 | UpdateSections | Command | `PUT /api/profiles/me/sections` | Bulk upsert all sections (add, update, remove, reorder) |
 | ImportResumeGetUploadUrl | Command | `POST /api/profiles/me/import/upload-url` | Get RustFS presigned upload URL |
-| ImportResumeParse | Command | `POST /api/profiles/me/import/parse` | Trigger AI resume parsing (Hangfire) |
+| ImportResumeParse | Command | `POST /api/profiles/me/import/parse` | Trigger AI resume parsing (Wolverine) |
 | ImportResumeParseStatus | Query | `GET /api/profiles/me/import/parse/{parseId}/status` | Poll parsing job status |
 | ImportResumeConfirm | Command | `POST /api/profiles/me/import/confirm` | Confirm parsed data import |
 | ExportProfile | Command | `POST /api/profiles/me/export` | Export profile as JSON |
@@ -828,9 +872,15 @@ public static class ModuleExtensions
 - `ProfileDbContext` (schema: `profile`)
 - `ResumeParserService` — OpenAI API integration for resume parsing
 
+**Event Handlers (subscribes to):**
+- `UserRegistered` → creates ProfileUser record
+- `UserNameUpdated` → updates ProfileUser record
+
+**Local User Data:**
+- `ProfileUser` — UserId, FirstName, LastName (populated via events, no gRPC needed for shared profile)
+
 **gRPC Service:** `profile.proto`
-- `GetProfileByUserId(UserIdRequest) → ProfileResponse`
-- `GetProfileById(ProfileIdRequest) → ProfileResponse`
+- `GetProfileById(GetProfileByIdRequest) → GetProfileByIdResponse`
 
 ### JobDescriptions Module
 
@@ -897,14 +947,16 @@ API publishes commands to `job-description.commands` queue → Worker consumes �
 
 | Feature | Type | Endpoint | Description |
 |---------|------|----------|-------------|
-| GenerateCV | Command | `POST /api/cv/generate` | AI-tailored CV |
-| GenerateCoverLetter | Command | `POST /api/cv/cover-letter` | AI cover letter |
-| GetMatchScore | Query | `POST /api/cv/match-score` | Profile vs JD score |
-| PreviewCV | Query | `GET /api/cv/{id}/preview` | Rendered HTML preview |
-| ExportPdf | Query | `GET /api/cv/{id}/export/pdf` | Download PDF |
-| RegenerateCV | Command | `POST /api/cv/{id}/regenerate` | New template, same data |
-| ListHistory | Query | `GET /api/cv` | Paginated history |
-| GetGeneratedCV | Query | `GET /api/cv/{id}` | Get CV details |
+| GenerateCV | Command | `POST /api/cv/generate` | AI-tailored CV (async — poll status) |
+| GetGenerationStatus | Query | `GET /api/cv/generate/{generationId}/status` | Poll CV generation status |
+| GetGeneratedCV | Query | `GET /api/cv/{id}` | Get full CV details |
+| RegenerateCV | Command | `POST /api/cv/{id}/regenerate` | New CV with different template/prompt |
+| UpdateCVContent | Command | `PUT /api/cv/{id}/content` | Edit AI-generated content |
+| GenerateCoverLetter | Command | `POST /api/cv/{id}/cover-letter` | AI cover letter (async — poll status) |
+| ExportPdf | Command | `POST /api/cv/{id}/export/pdf` | Trigger PDF export (async — poll status) |
+| ExportPdfStatus | Query | `GET /api/cv/{id}/export/status` | Poll PDF export status |
+| DownloadPdf | Query | `GET /api/cv/{id}/export/pdf` | Download generated PDF |
+| ListHistory | Query | `GET /api/cv` | Paginated CV history |
 
 **Domain Entities:**
 - `GeneratedCV` — Id, UserId, ProfileSnapshot (JSONB), JobSnapshot (JSONB), TemplateId, Content (JSONB), MatchScore, CoverLetter, CreatedAt
@@ -917,14 +969,12 @@ API publishes commands to `job-description.commands` queue → Worker consumes �
 - `CoverLetterService` — OpenAI API for cover letter generation
 - `PuppeteerPdfService` — HTML → PDF conversion
 
-**Wolverine Event Handlers:**
-- Publishes `CVGeneratedEvent` after successful generation
+**Wolverine Published Events:**
+- `CVTailoringCompleted` / `CVTailoringFailed` — after CV tailoring
+- `CoverLetterCompleted` / `CoverLetterFailed` — after cover letter generation
+- `CvPdfExportCompleted` / `CvPdfExportFailed` — after PDF export
 
-**Wolverine Saga:**
-- `CVGenerationSaga` — orchestrates: fetch profile (gRPC) → fetch JD (gRPC) → fetch template (gRPC) → AI tailor → store → publish event
-
-**gRPC Service:** `cvgenerator.proto`
-- `GetGeneratedCVById(CVIdRequest) → GeneratedCVResponse`
+**gRPC Service:** None (CVGenerator fetches data from other modules via gRPC, does not expose its own gRPC endpoint)
 
 ---
 
@@ -945,12 +995,12 @@ API publishes commands to `job-description.commands` queue → Worker consumes �
 | **Sync inter-module** | gRPC (Grpc.Net) | Real-time cross-module calls |
 | **Validation** | FluentValidation | Input validation via decorator |
 | **Error handling** | `Result<T>` pattern | Explicit error returns |
-| **Resilience** | Polly | Retry, circuit breaker for HTTP calls |
+| **Resilience** | Wolverine built-in retry | Retry for external API calls |
 | **Caching** | Redis (StackExchange.Redis) | Response caching |
 | **Logging** | Serilog | Structured logging via decorator |
 | **Observability** | OpenTelemetry | Distributed tracing + metrics |
 | **Health checks** | ASP.NET Core Health Checks | `/health` endpoint |
-| **Background jobs** | Hangfire | Scheduled + long-running tasks |
+| **Background jobs** | Wolverine | Async message processing, sagas |
 | **API versioning** | Asp.Versioning.Http | Versioned endpoints |
 | **Rate limiting** | ASP.NET Core Rate Limiting | Endpoint protection |
 | **Correlation IDs** | Custom middleware | Request tracing |
@@ -1047,8 +1097,6 @@ Central Package Management (CPM). All NuGet package versions defined in one plac
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Rabbitmq" Version="9.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.Uris" Version="9.0.0" />
 
     <!-- S3 / Object Storage -->
     <PackageVersion Include="AWSSDK.S3" Version="4.0.21.2" />
@@ -1072,20 +1120,15 @@ Central Package Management (CPM). All NuGet package versions defined in one plac
     <PackageVersion Include="Grpc.AspNetCore" Version="2.76.0" />
     <PackageVersion Include="Grpc.Net.Client" Version="2.76.0" />
 
-    <!-- Background Jobs -->
-    <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.23" />
-    <PackageVersion Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <!-- Background Jobs: Handled by Wolverine built-in (no external package needed) -->
 
     <!-- Authentication -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
 
-    <!-- Caching -->
-    <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.6" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.6" />
+    <!-- Caching: StackExchange.Redis is used directly; Microsoft.Extensions.Caching.StackExchangeRedis was removed -->
 
-    <!-- Resilience -->
-    <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="10.0.6" />
+    <!-- Resilience: Wolverine handles retries; Microsoft.Extensions.Http.Polly was removed -->
 
     <!-- Scraping -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.59.0" />
@@ -1170,6 +1213,7 @@ Each module has its own PostgreSQL schema. Tables are prefixed by module:
  │
  ├── profile schema
  │   ├── profiles
+ │   ├── users                                   # Event-driven copy of Identity user names
  │   ├── experiences
  │   ├── projects
  │   ├── skills
@@ -1230,30 +1274,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
 ## gRPC Contracts
 
-### identity.proto
-
-```protobuf
-syntax = "proto3";
-
-package identity;
-
-service IdentityService {
-  rpc GetUserById (UserIdRequest) returns (UserResponse);
-}
-
-message UserIdRequest {
-  string user_id = 1;
-}
-
-message UserResponse {
-  string user_id = 1;
-  string email = 2;
-  string first_name = 3;
-  string last_name = 4;
-  string role = 5;
-}
-```
-
 ### profile.proto
 
 ```protobuf
@@ -1262,7 +1282,6 @@ syntax = "proto3";
 package profile;
 
 service ProfileService {
-  rpc GetProfileByUserId (UserIdRequest) returns (ProfileResponse);
   rpc GetProfileById (ProfileIdRequest) returns (ProfileResponse);
 }
 
@@ -1381,32 +1400,6 @@ message TemplateResponse {
 }
 ```
 
-### cvgenerator.proto
-
-```protobuf
-syntax = "proto3";
-
-package cvgenerator;
-
-service CVGeneratorService {
-  rpc GetGeneratedCVById (CVIdRequest) returns (GeneratedCVResponse);
-}
-
-message CVIdRequest {
-  string cv_id = 1;
-}
-
-message GeneratedCVResponse {
-  string cv_id = 1;
-  string user_id = 2;
-  string content_json = 3;
-  string cover_letter = 4;
-  int32 match_score = 5;
-  string template_id = 6;
-  string created_at = 7;
-}
-```
-
 ---
 
 ## Event Flow
@@ -1414,28 +1407,24 @@ message GeneratedCVResponse {
 ### Integration Events (via Wolverine + RabbitMQ)
 
 ```
-┌──────────────────────┐                              ┌──────────────────┐
-│  CVGenerator         │   CVGeneratedEvent           │   Dashboard       │
-│  publishes from:     │ ────────────────────────────→ │   listens via:   │
-│  .CVGenerator.Contracts │                            │  ref: .CVGenerator.Contracts │
+┌──────────────────────┐   UserRegistered           ┌──────────────────┐
+│  Identity            │ ────────────────────────────→ │  Profile         │
+│  publishes from:     │   UserNameUpdated             │   listens via:   │
+│  .Identity.Contracts │                              │  ProfileWolverineExtension │
 └──────────────────────┘                              └──────────────────┘
 
-┌──────────────────────┐   ProfileUpdatedEvent        ┌──────────────────┐
-│  Profile             │ ────────────────────────────→ │  CVGenerator     │
-│  publishes from:     │                              │   listens via:   │
-│  .Profile.Contracts  │                              │  ref: .Profile.Contracts │
-└──────────────────────┘                              └──────────────────┘
-
-┌──────────────────────┐  JobParsingCompleted        ┌──────────────────┐
+┌──────────────────────┐   JobParsingCompleted       ┌──────────────────┐
 │  JobDescriptions     │ ────────────────────────────→ │  CVGenerator     │
 │  publishes from:     │                              │   listens via:   │
-│  .JobDescriptions.Contracts │                            │  ref: .JobDescriptions.Contracts │
+│  .JobDescriptions.  │   JobParsingFailed           │  CVGenerator     │
+│  Contracts           │ ────────────────────────────→ │  WolverineExt    │
 └──────────────────────┘                              └──────────────────┘
 
-┌──────────────────────┐  JobParsingFailed           ┌──────────────────┐
-│  JobDescriptions     │ ────────────────────────────→ │  CVGenerator     │
-│  (on parse failure)  │                              │   listens via:   │
-│  .JobDescriptions.Contracts │                            │  ref: .JobDescriptions.Contracts │
+┌──────────────────────┐   CVTailoringCompleted      ┌──────────────────┐
+│  CVGenerator         │ ────────────────────────────→ │  (future:         │
+│  (no consumer yet)   │   CoverLetterCompleted       │   Dashboard,      │
+│  .CVGenerator.       │   CvPdfExportCompleted       │   notifications)  │
+│  Contracts           │                              │                  │
 └──────────────────────┘                              └──────────────────┘
 ```
 
@@ -1444,22 +1433,42 @@ message GeneratedCVResponse {
 Each module that publishes events defines them in its own `.Contracts` project. Consumers reference the publisher's Contracts project — never the full module.
 
 ```
-TailorCV.Profile.Contracts/Events/ProfileUpdatedEvent.cs
+TailorCV.Identity.Contracts/Events/UserRegistered.cs
+TailorCV.Identity.Contracts/Events/UserNameUpdated.cs
+TailorCV.Profile.Contracts/Events/ProfileUpdated.cs
+TailorCV.Profile.Contracts/Events/ResumeParsingCompleted.cs
+TailorCV.Profile.Contracts/Events/ResumeParsingFailed.cs
 TailorCV.JobDescriptions.Contracts/Events/JobParsingCompleted.cs
 TailorCV.JobDescriptions.Contracts/Events/JobParsingFailed.cs
-TailorCV.CVGenerator.Contracts/Events/CVGeneratedEvent.cs
+TailorCV.CVGenerator.Contracts/Events/CVTailoringCompleted.cs
+TailorCV.CVGenerator.Contracts/Events/CVTailoringFailed.cs
+TailorCV.CVGenerator.Contracts/Events/CoverLetterCompleted.cs
+TailorCV.CVGenerator.Contracts/Events/CoverLetterFailed.cs
+TailorCV.CVGenerator.Contracts/Events/CvPdfExportCompleted.cs
+TailorCV.CVGenerator.Contracts/Events/CvPdfExportFailed.cs
 ```
 
 ```csharp
-// TailorCV.Profile.Contracts — published when profile is created/updated
-public record ProfileUpdatedEvent(Guid UserId, Guid ProfileId, DateTime UpdatedAt);
+// TailorCV.Identity.Contracts — published when user registers or updates name
+public record UserRegistered(Guid UserId, string FirstName, string LastName);
+public record UserNameUpdated(Guid UserId, string FirstName, string LastName);
+
+// TailorCV.Profile.Contracts — published when profile changes or resume parsed
+public record ProfileUpdated(Guid UserId, Guid ProfileId, DateTimeOffset UpdatedAt);
+public record ResumeParsingCompleted(Guid ParseJobId, ParsedResumeData Data);
+public record ResumeParsingFailed(Guid ParseJobId, string Error);
 
 // TailorCV.JobDescriptions.Contracts — published when a JD parse completes (success or failure)
 public record JobParsingCompleted(Guid ParseJobId, ParsedJobDataDto Data, string? RawText = null, Uri? SourceUrl = null);
 public record JobParsingFailed(Guid ParseJobId, string Error);
 
-// TailorCV.CVGenerator.Contracts — published when a CV is generated
-public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int MatchScore, DateTime GeneratedAt);
+// TailorCV.CVGenerator.Contracts — published when CV/cover-letter/PDF operations complete
+public record CVTailoringCompleted(Guid CVId, ...);
+public record CVTailoringFailed(Guid CVId, string Error);
+public record CoverLetterCompleted(Guid CVId, ...);
+public record CoverLetterFailed(Guid CVId, string Error);
+public record CvPdfExportCompleted(Guid CVId, string PdfUrl);
+public record CvPdfExportFailed(Guid CVId, string Error);
 ```
 
 **Contracts project references (who references whom):**
@@ -1467,15 +1476,14 @@ public record CVGeneratedEvent(Guid CVId, Guid UserId, string JobTitle, int Matc
 | Module | References |
 |--------|-----------|
 | CVGenerator | `TailorCV.Profile.Contracts`, `TailorCV.JobDescriptions.Contracts`, `TailorCV.Templates.Contracts` |
-| Dashboard (if separate) | `TailorCV.CVGenerator.Contracts` |
-| Profile | `TailorCV.Identity.Contracts` (for user name via gRPC — not events) |
+| Profile | `TailorCV.Identity.Contracts` (for user name via events) |
 | JobDescriptions | _(none — no incoming events)_ |
 | Templates | _(none — no incoming events)_ |
-| Identity | _(none — publishes no events)_ |
+| Identity | _(does not consume events; publishes via Wolverine)_ |
 
 > **Rule:** A module's Contracts project contains only `record` types (events + DTOs). No logic, no dependencies on other TailorCV projects. This keeps them safe to share across service boundaries when splitting into microservices.
 
-### CV Generation Saga (Wolverine)
+### CV Generation Flow (Wolverine)
 
 ```
 GenerateCV command received
@@ -1486,9 +1494,12 @@ GenerateCV command received
   ├── AI: Tailor CV content (OpenAI)
   ├── AI: Calculate match score (OpenAI)
   ├── Store: Save GeneratedCV to database
-  ├── Publish: CVGeneratedEvent via Wolverine
-  └── Return: Generated CV result
+  ├── Publish: CVTailoringCompleted via Wolverine
+  └── Return: Generated CV result (poll status via GetGenerationStatus)
 ```
+
+**Cover letter flow:** Similar pattern → `CoverLetterCompleted`  
+**PDF export flow:** Similar pattern → `CvPdfExportCompleted`
 
 ---
 

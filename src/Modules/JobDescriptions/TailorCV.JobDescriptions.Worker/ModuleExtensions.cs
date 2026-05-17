@@ -1,10 +1,9 @@
-using System.ClientModel;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using OpenAI;
 using TailorCV.JobDescriptions.Worker.Infrastructure.AI;
 using TailorCV.JobDescriptions.Worker.Infrastructure.RateLimiting;
 using TailorCV.JobDescriptions.Worker.Infrastructure.Scraping;
+using TailorCV.Infrastructure.AI;
 
 namespace TailorCV.JobDescriptions.Worker;
 
@@ -14,27 +13,17 @@ public static class ModuleExtensions
         this IServiceCollection services,
         IConfiguration config)
     {
-        services.AddOptions<OpenAiOptions>()
-            .Bind(config.GetSection(OpenAiOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        IConfiguration module = config.GetSection("JobDescriptions");
+
+        services.AddOpenAIClient(module, "OpenAI");
 
         services.AddOptions<PlaywrightOptions>()
-            .Bind(config.GetSection(PlaywrightOptions.SectionName))
+            .Bind(module.GetSection(PlaywrightOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         services.AddSingleton<DomainRateLimiter>();
         services.AddSingleton<IPlaywrightScrapingService, PlaywrightScrapingService>();
-
-        services.AddSingleton<OpenAIClient>((sp) =>
-        {
-            IOptions<OpenAiOptions> options = sp.GetRequiredService<IOptions<OpenAiOptions>>();
-            return string.IsNullOrEmpty(options.Value.Endpoint)
-                ? new OpenAIClient(options.Value.ApiKey)
-                : new OpenAIClient(new ApiKeyCredential(options.Value.ApiKey), new OpenAIClientOptions { Endpoint = new Uri(options.Value.Endpoint) });
-        });
-
         services.AddScoped<IJobDescriptionParserService, OpenAiJobParserService>();
 
         return services;

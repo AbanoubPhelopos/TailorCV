@@ -121,6 +121,7 @@ public static class UpdateProfile
         .WithTags("Profile")
         .WithName("UpdateProfile")
         .WithSummary("Update profile base fields")
-        .WithDescription("Updates the profile's base fields (headline, summary, contact info, URLs). Sections are managed via PUT /api/profiles/me/sections.");
+        .WithDescription("Updates the profile's base fields (headline, summary, contact info, URLs). Sections are managed via PUT /api/profiles/me/sections.")
+        .Produces<Response>();
     }
 }

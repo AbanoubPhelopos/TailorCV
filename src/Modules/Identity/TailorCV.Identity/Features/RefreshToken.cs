@@ -79,6 +79,7 @@ public static class RefreshToken
         .WithTags("Identity")
         .WithName("RefreshToken")
         .WithSummary("Rotate refresh token")
-        .WithDescription("Exchanges a valid refresh token for a new access token + refresh token pair. The old token is revoked.");
+        .WithDescription("Exchanges a valid refresh token for a new access token + refresh token pair. The old token is revoked.")
+        .Produces<Response>();
     }
 }

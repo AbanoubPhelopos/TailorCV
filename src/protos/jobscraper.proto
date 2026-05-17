@@ -1,1 +1,25 @@
+syntax = "proto3";
 
+option csharp_namespace = "TailorCV.JobDescriptions.Contracts.Grpc";
+
+package jobdescriptions;
+
+service JobDescriptionsService {
+  rpc GetJobById (GetJobByIdRequest) returns (GetJobByIdResponse);
+}
+
+message GetJobByIdRequest {
+  string id = 1;
+}
+
+message GetJobByIdResponse {
+  string id = 1;
+  string title = 2;
+  string company = 3;
+  string location = 4;
+  repeated string required_skills = 5;
+  repeated string responsibilities = 6;
+  repeated string qualifications = 7;
+  string seniority_level = 8;
+  string user_id = 9;
+}

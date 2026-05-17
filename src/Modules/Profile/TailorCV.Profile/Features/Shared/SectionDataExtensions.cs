@@ -87,13 +87,23 @@ public static class SectionDataExtensions
                 Description = i.Description != null ? string.Join("\n", i.Description) : null, Url = i.Url,
             }).ToList(),
 
-            _ => throw new InvalidOperationException($"Unknown section type: {data.Type}"),
+            _ => throw new InvalidOperationException($"Unknown section type: {data.GetType().Name}"),
         };
 
         return new ProfileSection
         {
             Id = data.Id,
-            Type = data.Type,
+            Type = data switch
+            {
+                ExperienceSectionData => "experience",
+                ProjectSectionData => "project",
+                SkillSectionData => "skill",
+                EducationSectionData => "education",
+                CertificationSectionData => "certification",
+                LanguageSectionData => "language",
+                CustomSectionData => "custom",
+                _ => throw new InvalidOperationException($"Unknown section type: {data.GetType().Name}"),
+            },
             Order = data.Order,
             Title = data is CustomSectionData csd ? csd.Title : null,
             Items = items,

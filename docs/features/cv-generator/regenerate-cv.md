@@ -100,7 +100,7 @@ History:
    - Compute match score (same result — same profile + JD)
    - Call OpenAI with profile + JD + new template context + tailoringPrompt → fresh Content
    - Store Content + MatchScore, set status=Done
-   - Publish `CVGeneratedEvent`
+   - Publish `CVTailoringCompleted`
 6. Client polls `GET /api/cv/generate/{generationId}/status`
 
 ## Inter-module Interactions
@@ -118,7 +118,7 @@ No profile/JD gRPC needed — uses existing snapshots.
 | Service | Purpose | Resilience |
 |---------|---------|------------|
 | Templates gRPC | Fetch new template | Built-in gRPC retry |
-| OpenAI API | CV content re-tailoring | Polly: 3 retries, exponential backoff |
+| OpenAI API | CV content re-tailoring | Wolverine built-in retry |
 
 ## Diagrams
 
@@ -167,7 +167,7 @@ sequenceDiagram
     WH->>AI: Tailor CV content (snapshots + new template + prompt)
     AI-->>WH: Fresh Content JSON
     WH->>DB: Update status=Done + content + score
-    WH->>W: PublishAsync(CVGeneratedEvent)
+    WH->>W: PublishAsync(CVTailoringCompleted)
 
     Note over C,AI: STEP 3 — Poll Status (same as GenerateCV)
     C->>API: GET /api/cv/generate/{generationId}/status

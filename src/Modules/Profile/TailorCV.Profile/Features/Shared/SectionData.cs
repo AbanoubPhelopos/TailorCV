@@ -13,14 +13,13 @@ namespace TailorCV.Profile.Features.Shared;
 [JsonDerivedType(typeof(LanguageSectionData), "language")]
 [JsonDerivedType(typeof(CustomSectionData), "custom")]
 public abstract record SectionData(
-    string Type,
     Guid Id,
     int Order);
 
 public record ExperienceSectionData(
     Guid Id,
     int Order,
-    List<ExperienceItem> Items) : SectionData("experience", Id, Order);
+    List<ExperienceItem> Items) : SectionData(Id, Order);
 
 public record ExperienceItem(
     Guid Id,
@@ -35,7 +34,7 @@ public record ExperienceItem(
 public record ProjectSectionData(
     Guid Id,
     int Order,
-    List<ProjectItem> Items) : SectionData("project", Id, Order);
+    List<ProjectItem> Items) : SectionData(Id, Order);
 
 public record ProjectItem(
     Guid Id,
@@ -51,7 +50,7 @@ public record ProjectItem(
 public record SkillSectionData(
     Guid Id,
     int Order,
-    List<SkillItem> Items) : SectionData("skill", Id, Order);
+    List<SkillItem> Items) : SectionData(Id, Order);
 
 public record SkillItem(
     Guid Id,
@@ -61,7 +60,7 @@ public record SkillItem(
 public record EducationSectionData(
     Guid Id,
     int Order,
-    List<EducationItem> Items) : SectionData("education", Id, Order);
+    List<EducationItem> Items) : SectionData(Id, Order);
 
 public record EducationItem(
     Guid Id,
@@ -76,7 +75,7 @@ public record EducationItem(
 public record CertificationSectionData(
     Guid Id,
     int Order,
-    List<CertificationItem> Items) : SectionData("certification", Id, Order);
+    List<CertificationItem> Items) : SectionData(Id, Order);
 
 public record CertificationItem(
     Guid Id,
@@ -90,7 +89,7 @@ public record CertificationItem(
 public record LanguageSectionData(
     Guid Id,
     int Order,
-    List<LanguageItem> Items) : SectionData("language", Id, Order);
+    List<LanguageItem> Items) : SectionData(Id, Order);
 
 public record LanguageItem(
     Guid Id,
@@ -102,7 +101,7 @@ public record CustomSectionData(
     Guid Id,
     int Order,
     string Title,
-    List<CustomItem> Items) : SectionData("custom", Id, Order);
+    List<CustomItem> Items) : SectionData(Id, Order);
 
 public record CustomItem(
     Guid Id,

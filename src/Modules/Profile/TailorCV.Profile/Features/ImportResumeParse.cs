@@ -83,6 +83,7 @@ public static class ImportResumeParse
         .WithTags("Profile")
         .WithName("ImportResumeParse")
         .WithSummary("Trigger resume parsing")
-        .WithDescription("Triggers async AI parsing of an uploaded resume. Returns a parseId for polling.");
+        .WithDescription("Triggers async AI parsing of an uploaded resume. Returns a parseId for polling.")
+        .Produces<Response>(202);
     }
 }

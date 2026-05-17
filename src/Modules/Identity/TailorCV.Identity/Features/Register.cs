@@ -1,16 +1,18 @@
-#pragma warning disable CA1308
-
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using TailorCV.Identity.Contracts.Events;
 using TailorCV.Identity.Domain;
 using TailorCV.Identity.Infrastructure;
 using TailorCV.Shared.CQRS;
 using TailorCV.Shared.Interfaces;
 using TailorCV.Shared.Results;
 using RefreshTokenEntity = TailorCV.Identity.Domain.RefreshToken;
+using Wolverine;
+
+#pragma warning disable CA1308
 
 namespace TailorCV.Identity.Features;
 
@@ -54,7 +56,8 @@ public static class Register
     public class Handler(
         IdentityDbContext dbContext,
         IJwtService jwtService,
-        IDateTimeProvider dateTimeProvider) : ICommandHandler<Request, Response>
+        IDateTimeProvider dateTimeProvider,
+        IMessageBus bus) : ICommandHandler<Request, Response>
     {
         public async Task<Result<Response>> HandleAsync(Request command, CancellationToken ct)
         {
@@ -89,6 +92,8 @@ public static class Register
             dbContext.RefreshTokens.Add(refreshToken);
             await dbContext.SaveChangesAsync(ct);
 
+            await bus.PublishAsync(new UserRegistered(user.Id, user.FirstName, user.LastName));
+
             string accessToken = jwtService.GenerateAccessToken(user);
 
             return Result<Response>.Success(new Response(user.Id, accessToken, refreshToken.Token));
@@ -110,7 +115,8 @@ public static class Register
         .WithTags("Identity")
         .WithName("Register")
         .WithSummary("Register a new user")
-        .WithDescription("Creates a new user account and returns access + refresh tokens.");
+        .WithDescription("Creates a new user account and returns access + refresh tokens.")
+        .Produces<Response>(201);
     }
 }
 

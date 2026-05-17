@@ -162,7 +162,7 @@ stateDiagram-v2
 | Code | HTTP Status | When |
 |------|-------------|------|
 | `VALIDATION` | 400 | Missing or empty refresh token value |
-| `REFRESH_TOKEN_NOT_FOUND` | 404 | Token not found in database |
+| `REFRESH_TOKEN_NOT_FOUND` | 401 | Token not found in database |
 | `REFRESH_TOKEN_EXPIRED` | 401 | Token has expired |
 | `USER_DELETED` | 401 | Associated user no longer exists |
 

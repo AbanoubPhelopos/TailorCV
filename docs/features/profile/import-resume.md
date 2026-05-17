@@ -11,9 +11,8 @@ Authenticated user (profile owner)
 ## Infrastructure
 
 - **RustFS** — S3-compatible object storage (Docker Compose)
-- **Hangfire** — background job for AI parsing
+- **Wolverine** — background job processing via RabbitMQ
 - **OpenAI API** — resume text extraction + structuring
-- **Polly** — retry resilience for OpenAI calls
 
 ## Endpoints
 
@@ -68,7 +67,7 @@ Content-Type: application/json
 }
 ```
 
-Enqueues a **Hangfire job** that:
+Enqueues a **Wolverine command** that:
 1. Downloads file from S3
 2. Extracts text (PDF/DOCX)
 3. Sends to OpenAI for structured extraction
@@ -209,20 +208,20 @@ Same validation rules as SectionCRUD for each section type.
 - Supported formats: PDF, DOCX only
 - File size limit: 5MB (enforced via S3 POST policy)
 - Presigned URL expiry: 5 minutes
-- Parse job timeout: 2 minutes (Hangfire)
+- Parse job timeout: 2 minutes (Wolverine message timeout)
 - S3 file deleted after successful parse (retention policy handles failures)
 - Parse is idempotent — user can trigger multiple parses (each gets new parseId)
 - On confirm: if profile doesn't exist → create it; if exists → merge base fields (non-empty parsed values overwrite) and append sections
 - Custom sections can be extracted by AI (e.g., "Publications", "Volunteering", "Awards")
 - All parsed sections get `SectionOrder` entries appended at the end
-- Uses Polly retry policy for OpenAI API calls (3 retries, exponential backoff)
+- Uses Wolverine built-in retry for OpenAI API calls
 
 ## Flow
 
 1. Client requests presigned S3 POST URL → gets `{ key, url, fields }`
 2. Client uploads file directly to RustFS via presigned URL
 3. Client triggers parse with `key` → gets `parseId` (202 Accepted)
-4. Hangfire background job processes: download from S3 → extract text → OpenAI parse → store result → delete S3 file
+4. Wolverine background handler processes: download from S3 → extract text → OpenAI parse → store result → delete S3 file
 5. Client polls `GET /parse/{parseId}/status` until `DONE` or `FAILED`
 6. User reviews and edits parsed data in UI
 7. Client confirms import → profile created/updated + sections appended
@@ -232,7 +231,7 @@ Same validation rules as SectionCRUD for each section type.
 ### Async Event Published (on confirm)
 
 ```csharp
-public record ProfileUpdatedEvent(Guid UserId, Guid ProfileId, DateTime UpdatedAt);
+public record ProfileUpdated(Guid UserId, Guid ProfileId, DateTimeOffset UpdatedAt);
 ```
 
 Published via **Wolverine + RabbitMQ** after successful confirm.
@@ -248,8 +247,7 @@ Published via **Wolverine + RabbitMQ** after successful confirm.
 | Service | Purpose | Resilience |
 |---------|---------|------------|
 | RustFS (S3) | File upload/download/delete | Presigned URL with policy |
-| OpenAI API | Resume text extraction + structuring | Polly: 3 retries, exponential backoff |
-| Hangfire | Background job processing | Built-in retry |
+| OpenAI API | Resume text extraction + structuring | Wolverine built-in retry |
 
 ## Diagrams
 
@@ -261,7 +259,7 @@ sequenceDiagram
     participant API as TailorCV API
     participant S3 as RustFS S3
     participant DB as ProfileDbContext
-    participant HF as Hangfire
+    participant HF as Wolverine Worker
     participant AI as OpenAI API
 
     Note over C,AI: STEP 1 — Get Upload URL
@@ -286,7 +284,7 @@ sequenceDiagram
     S3-->>HF: file bytes
     HF->>HF: Extract text from PDF/DOCX
     HF->>AI: Send text for structured extraction
-    Note over AI: Polly retry: 3 attempts,<br/>exponential backoff
+    Note over AI: Wolverine built-in retry
     AI-->>HF: structured JSON
     HF->>DB: Update ParseJob status=Done + parsedData
     HF->>S3: Delete file
@@ -314,7 +312,7 @@ sequenceDiagram
     API->>DB: Merge base fields
     API->>DB: Create section entities + SectionOrder
     API->>DB: SaveChangesAsync()
-    API->>W: PublishAsync(ProfileUpdatedEvent)
+    API->>W: PublishAsync(ProfileUpdated)
     API-->>C: 200 { profileId, sectionsImported, completeness }
 ```
 
@@ -322,14 +320,14 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Hangfire picks up job] --> B[Update status to Processing]
+    A[Wolverine delivers parse command] --> B[Update status to Processing]
     B --> C[Download file from S3]
     C --> D{Download OK?}
     D -->|No| E[Update status to Failed<br/>error: download failed]
     D -->|Yes| F[Extract text from file]
     F --> G{Text extracted?}
     G -->|No| E
-    G -->|Yes| H[Send to OpenAI<br/>Polly: 3 retries]
+    G -->|Yes| H[Send to OpenAI<br/>Wolverine retry policy]
     H --> I{OpenAI success?}
     I -->|No| E
     I -->|Yes| J[Map to ParsedData structure]
@@ -348,9 +346,8 @@ graph TD
 
     subgraph "Shared Infrastructure"
         C[S3 Service — RustFS]
-        D[Hangfire Background Jobs]
-        E[Polly Resilience]
-        F[Wolverine Bus]
+        D[Wolverine Background Processing]
+        E[Wolverine Bus]
     end
 
     subgraph "External"
@@ -362,9 +359,7 @@ graph TD
     B --> A
     D --> C
     D --> G
-    D --> E
-    A --> F
-    E -.->|wraps| G
+    A --> E
 ```
 
 ## Error Codes

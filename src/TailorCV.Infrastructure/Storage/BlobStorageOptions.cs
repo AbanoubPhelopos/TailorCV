@@ -2,7 +2,7 @@
 
 public class BlobStorageOptions
 {
-    public const string SectionName = "S3";
+    public const string SectionName = "BlobStorage";
 
     public string Endpoint { get; set; } = string.Empty;
     public string AccessKey { get; set; } = string.Empty;

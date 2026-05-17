@@ -94,7 +94,7 @@ Content-Type: application/json
    - Update all profile fields from request
    - Set `updatedAt` via `TimeProvider`
    - Save to `profile.profiles`
-   - Publish `ProfileUpdatedEvent` via Wolverine
+   - Publish `ProfileUpdated` via Wolverine
    - Recalculate completeness
    - Return updated profile
 5. **LoggingDecorator** logs result
@@ -104,7 +104,7 @@ Content-Type: application/json
 ### Async Event Published
 
 ```csharp
-public record ProfileUpdatedEvent(Guid UserId, Guid ProfileId, DateTime UpdatedAt);
+public record ProfileUpdated(Guid UserId, Guid ProfileId, DateTimeOffset UpdatedAt);
 ```
 
 Published via **Wolverine + RabbitMQ** after successful update.
@@ -152,7 +152,7 @@ sequenceDiagram
     H->>H: Update profile fields
     H->>H: Set updatedAt = now
     H->>DB: SaveChangesAsync()
-    H->>W: PublishAsync(ProfileUpdatedEvent)
+    H->>W: PublishAsync(ProfileUpdated)
     H->>H: Recalculate completeness
     H-->>L: Result.Success(ProfileResponse)
     L-->>C: 200 OK
@@ -171,7 +171,7 @@ flowchart TD
     F -->|Yes| H[Update profile fields]
     H --> I[Set updatedAt]
     I --> J[Save to DB]
-    J --> K[Publish ProfileUpdatedEvent]
+    J --> K[Publish ProfileUpdated]
     K --> L[Recalculate completeness]
     L --> M[Return 200]
 ```

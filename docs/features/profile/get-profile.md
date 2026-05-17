@@ -98,7 +98,7 @@ Authorization: Bearer {accessToken}
 
 ## Inter-module Interactions
 
-**None directly from this endpoint.** Other modules access profile data via **gRPC** (`ProfileService.GetProfileByUserId`).
+**None directly from this endpoint.** Other modules access profile data via **gRPC** (`ProfileService.GetProfileById`).
 
 ```mermaid
 graph LR
@@ -112,8 +112,8 @@ graph LR
     end
 
     A -.->|no direct interaction| A
-    B -->|gRPC: GetProfileByUserId| A
-    C -->|gRPC: GetProfileByUserId| A
+    B -->|gRPC: GetProfileById| A
+    C -->|gRPC: GetProfileById| A
 ```
 
 ## Diagrams

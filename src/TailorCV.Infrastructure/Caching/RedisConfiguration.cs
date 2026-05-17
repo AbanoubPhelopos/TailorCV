@@ -1,1 +1,0 @@
-namespace TailorCV.Infrastructure.Caching;

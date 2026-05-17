@@ -1,9 +1,8 @@
-using System.ClientModel;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using OpenAI;
 using TailorCV.Infrastructure.Storage;
 using TailorCV.Profile.Worker.Infrastructure.AI;
+using TailorCV.Infrastructure.AI;
 
 namespace TailorCV.Profile.Worker;
 
@@ -13,21 +12,10 @@ public static class ModuleExtensions
         this IServiceCollection services,
         IConfiguration config)
     {
-        services.AddOptions<OpenAiOptions>()
-            .Bind(config.GetSection(OpenAiOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+        IConfiguration module = config.GetSection("Profile");
 
-        services.AddSingleton<OpenAIClient>(sp =>
-        {
-            IOptions<OpenAiOptions> options = sp.GetRequiredService<IOptions<OpenAiOptions>>();
-            return string.IsNullOrEmpty(options.Value.Endpoint)
-                ? new OpenAIClient(options.Value.ApiKey)
-                : new OpenAIClient(new ApiKeyCredential(options.Value.ApiKey), new OpenAIClientOptions { Endpoint = new Uri(options.Value.Endpoint) });
-        });
-
+        services.AddOpenAIClient(module, "OpenAI");
         services.AddScoped<IResumeParserService, OpenAiResumeParserService>();
-
         services.AddBlobStorage(config);
 
         return services;

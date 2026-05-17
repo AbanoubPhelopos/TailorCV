@@ -1,1 +1,24 @@
+syntax = "proto3";
 
+option csharp_namespace = "TailorCV.Templates.Contracts.Grpc";
+
+package templates;
+
+service TemplatesService {
+  rpc GetTemplateById (GetTemplateByIdRequest) returns (GetTemplateByIdResponse);
+}
+
+message GetTemplateByIdRequest {
+  string id = 1;
+}
+
+message GetTemplateByIdResponse {
+  string id = 1;
+  string name = 2;
+  string html_content = 3;
+  string css_content = 4;
+  string thumbnail_url = 5;
+  string category = 6;
+  string style = 7;
+  bool is_active = 8;
+}

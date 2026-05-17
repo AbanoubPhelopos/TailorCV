@@ -80,6 +80,7 @@ public static class ShareProfile
         .WithTags("Profile")
         .WithName("ShareProfile")
         .WithSummary("Toggle profile sharing")
-        .WithDescription("Enables or disables profile sharing. Generates a unique share URL on first enable.");
+        .WithDescription("Enables or disables profile sharing. Generates a unique share URL on first enable.")
+        .Produces<Response>();
     }
 }

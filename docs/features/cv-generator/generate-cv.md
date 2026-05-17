@@ -140,7 +140,7 @@ Authorization: Bearer {accessToken}
 - Match score is calculated algorithmically (skills overlap, seniority match) — no OpenAI call for scoring
 - Cover letter generation uses a separate OpenAI call with profile + JD context
 - Profile and JD data is **snapshotted** (JSONB) at generation time — later changes to profile/JD do not affect this CV
-- Publishes `CVGeneratedEvent` via Wolverine after successful generation
+- Publishes `CVTailoringCompleted` via Wolverine after successful generation
 - Only the owner can poll their generation status
 
 ## Tailoring Prompt
@@ -174,7 +174,7 @@ If omitted, standard tailoring applies (match JD requirements, reorder by releva
    - Call OpenAI (`CVTailoringService`) with profile + JD + template + tailoringPrompt → get tailored Content
    - If `includeCoverLetter` → call OpenAI (`CoverLetterService`) with profile + JD → get cover letter
    - Store Content + MatchScore + CoverLetter, set status=Done
-   - Publish `CVGeneratedEvent`
+   - Publish `CVTailoringCompleted`
    - On any failure → set status=Failed with error message
 
 ## Inter-module Interactions
@@ -190,14 +190,14 @@ If omitted, standard tailoring applies (match JD requirements, reorder by releva
 **Event published** after success:
 
 ```csharp
-public record CVGeneratedEvent(Guid UserId, Guid GenerationId, string JobTitle, int MatchScorePercentage);
+public record CVTailoringCompleted(Guid UserId, Guid GenerationId, string JobTitle, int MatchScorePercentage);
 ```
 
-Published via **Wolverine**. Subscribers:
+Published via **Wolverine**. Subscribers (future):
 
 | Module | Reaction |
 |--------|----------|
-| Dashboard | Update recent activity, average match score |
+| Dashboard | Update recent activity, average match score (planned) |
 
 ### External Dependencies
 
@@ -206,7 +206,7 @@ Published via **Wolverine**. Subscribers:
 | Profile gRPC | Fetch profile data | Built-in gRPC retry |
 | JD gRPC | Fetch job description data | Built-in gRPC retry |
 | Template gRPC | Fetch template data | Built-in gRPC retry |
-| OpenAI API | CV content tailoring + cover letter | Polly: 3 retries, exponential backoff |
+| OpenAI API | CV content tailoring + cover letter | Wolverine built-in retry |
 
 ## Diagrams
 
@@ -258,7 +258,7 @@ sequenceDiagram
         AI-->>WH: Cover letter text
     end
     WH->>DB: Update status=Done + content + score + coverLetter
-    WH->>W: PublishAsync(CVGeneratedEvent)
+    WH->>W: PublishAsync(CVTailoringCompleted)
 
     Note over C,AI: STEP 3 — Poll Status
     loop Polling every 3s
@@ -290,17 +290,16 @@ flowchart TD
     J -->|No| K[status=Failed: Template not found or inactive]
     J -->|Yes| L[Store profile + JD snapshots]
     L --> M[Compute match score]
-    M --> N[OpenAI: tailor CV content<br/>Polly: 3 retries]
+    M --> N[OpenAI: tailor CV content<br/>Wolverine built-in retry]
     N --> O{OpenAI success?}
     O -->|No| P[status=Failed: AI generation error]
-    O -->|Yes| Q{includeCoverLetter?}
     Q -->|Yes| R[OpenAI: generate cover letter]
     R --> S{OpenAI success?}
     S -->|No| P
     S -->|Yes| T[Store content + score + coverLetter]
     Q -->|No| T
     T --> U[status=Done]
-    U --> V[Publish CVGeneratedEvent]
+    U --> V[Publish CVTailoringCompleted]
 ```
 
 ### Component Diagram

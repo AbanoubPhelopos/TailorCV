@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,12 +9,20 @@ using Serilog;
 using TailorCV.Api.Middleware;
 using TailorCV.Api.OpenApi;
 using TailorCV.Api.Services;
+using TailorCV.CVGenerator;
+using TailorCV.CVGenerator.Infrastructure;
 using TailorCV.Identity;
 using TailorCV.Identity.Infrastructure;
 using TailorCV.JobDescriptions;
+using TailorCV.JobDescriptions.Infrastructure;
+using TailorCV.JobDescriptions.gRpc;
 using TailorCV.Profile;
 using TailorCV.Profile.Infrastructure;
+using TailorCV.Profile.gRpc;
+using TailorCV.Templates;
+using TailorCV.Templates.gRpc;
 using TailorCV.Infrastructure.Storage;
+using TailorCV.Shared.EntityFramework;
 using TailorCV.Shared.Interfaces;
 using Wolverine;
 using Wolverine.RabbitMQ;
@@ -37,26 +44,23 @@ builder.Host.UseWolverine(opts =>
     opts.UseRabbitMq(builder.Configuration["RabbitMQ:ConnectionString"]!)
         .AutoProvision();
 
-    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ScrapeJobUrl>()
-        .ToRabbitQueue("job-description.commands");
-    opts.PublishMessage<TailorCV.JobDescriptions.Contracts.Commands.ParseJobText>()
-        .ToRabbitQueue("job-description.commands");
-
-    opts.ListenToRabbitQueue("job-description.events");
-
-    opts.PublishMessage<TailorCV.Profile.Contracts.Commands.ParseResume>()
-        .ToRabbitQueue("profile.commands");
-
-    opts.PublishMessage<TailorCV.Profile.Contracts.Events.ProfileUpdated>()
-        .ToRabbitQueue("profile.events");
-
-    opts.ListenToRabbitQueue("profile.events");
-
     opts.ApplicationAssembly = typeof(TailorCV.Api.ModuleMarker).Assembly;
     opts.ServiceName = "TailorCV.Api";
 });
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "postgresql")
+    .AddRabbitMQ(
+        async _ =>
+        {
+            System.Uri uri = new(builder.Configuration["RabbitMQ:ConnectionString"]!);
+            RabbitMQ.Client.ConnectionFactory factory = new() { Uri = uri };
+            return await factory.CreateConnectionAsync();
+        },
+        name: "rabbitmq")
+    .AddRedis(builder.Configuration["Redis:Configuration"]!, name: "redis");
+
+builder.Services.AddGrpc();
 
 builder.Services.AddOpenApi(options =>
 {
@@ -67,7 +71,7 @@ builder.Services.AddOpenApi(options =>
             return $"{declaringType.Name}{info.Type.Name}";
         }
 
-        return null;
+        return info.Type.Name;
     };
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
@@ -79,6 +83,8 @@ builder.Services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddJobDescriptionsModule(builder.Configuration);
 builder.Services.AddProfileModule(builder.Configuration);
+builder.Services.AddTemplatesModule(builder.Configuration);
+builder.Services.AddCVGeneratorModule(builder.Configuration);
 builder.Services.AddBlobStorage(builder.Configuration);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -91,21 +97,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration[$"{JwtSettings.SectionName}:Issuer"],
-            ValidAudience = builder.Configuration[$"{JwtSettings.SectionName}:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration[$"{JwtSettings.SectionName}:Secret"]!)),
+            ValidIssuer = builder.Configuration["Identity:Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Identity:Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Identity:Jwt:Secret"]!)),
             RoleClaimType = "role",
             NameClaimType = "sub",
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+});
 
 WebApplication app = builder.Build();
 
-await app.MigrateIdentityModuleAsync();
-await app.MigrateJobDescriptionsModuleAsync();
-await app.MigrateProfileModuleAsync();
+await app.MigrateModuleAsync<IdentityDbContext>();
+await app.MigrateModuleAsync<JobDescriptionsDbContext>();
+await app.MigrateModuleAsync<ProfileDbContext>();
+await app.MigrateTemplatesModuleAsync();
+await app.MigrateModuleAsync<CVGeneratorDbContext>();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -127,6 +138,12 @@ app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
 app.MapJobDescriptionsEndpoints();
 app.MapProfileEndpoints();
+app.MapTemplatesEndpoints();
+app.MapCVGeneratorEndpoints();
+
+app.MapGrpcService<TemplatesGrpcService>();
+app.MapGrpcService<ProfileGrpcService>();
+app.MapGrpcService<JobDescriptionsGrpcService>();
 
 app.MapGet("/", () => "TailorCV API");
 

@@ -7,7 +7,7 @@
 3. **JobDescriptions** — Job description input & URL scraping
 4. **Templates** — CV template management
 5. **CVGenerator** — AI-powered CV generation engine
-6. **Dashboard** — User activity overview
+6. **Dashboard** — User activity overview *(Deferred)*
 
 ---
 
@@ -133,7 +133,7 @@
 
 ---
 
-## Dashboard
+## Dashboard *(Deferred)*
 
 - Overview: profile completeness, recent CVs, average match score
 - Recent activity feed

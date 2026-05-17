@@ -20,19 +20,17 @@ Authorization: Bearer {accessToken}
 **200 OK**
 
 ```json
-{
-  "items": [
-    {
-      "id": "guid",
-      "name": "Clean Minimal",
-      "description": "A clean, minimalist template with excellent readability",
-      "thumbnailUrl": "https://storage.example.com/thumbnails/clean-minimal.png",
-      "category": "minimal",
-      "style": "modern",
-      "createdAt": "2026-01-01T00:00:00Z"
-    }
-  ]
-}
+[
+  {
+    "id": "guid",
+    "name": "Clean Minimal",
+    "description": "A clean, minimalist template with excellent readability",
+    "thumbnailUrl": "https://storage.example.com/thumbnails/clean-minimal.png",
+    "category": "minimal",
+    "style": "modern",
+    "createdAt": "2026-01-01T00:00:00Z"
+  }
+]
 ```
 
 **401 Unauthorized**

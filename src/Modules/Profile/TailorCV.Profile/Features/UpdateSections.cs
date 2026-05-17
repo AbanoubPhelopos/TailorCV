@@ -73,6 +73,7 @@ public static class UpdateSections
         .WithTags("Profile")
         .WithName("UpdateSections")
         .WithSummary("Update all profile sections")
-        .WithDescription("Bulk updates all sections. Frontend sends full desired state.");
+        .WithDescription("Bulk updates all sections. Frontend sends full desired state.")
+        .Produces<Response>();
     }
 }

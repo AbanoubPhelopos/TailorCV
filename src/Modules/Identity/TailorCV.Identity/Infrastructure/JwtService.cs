@@ -11,7 +11,7 @@ namespace TailorCV.Identity.Infrastructure;
 
 public class JwtSettings
 {
-    public const string SectionName = "JwtSettings";
+    public const string SectionName = "Jwt";
 
     [Required]
     [MinLength(32)]

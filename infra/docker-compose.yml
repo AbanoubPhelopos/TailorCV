@@ -1,4 +1,20 @@
 services:
+  job-description-worker:
+    build:
+      context: ..
+      dockerfile: src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - DOTNET_URLS=http://+:8080
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - tailorcv-network
+
   profile-worker:
     build:
       context: ..
@@ -15,10 +31,10 @@ services:
     networks:
       - tailorcv-network
 
-  worker:
+  cv-generator-worker:
     build:
       context: ..
-      dockerfile: src/Modules/JobDescriptions/TailorCV.JobDescriptions.Worker/Dockerfile
+      dockerfile: src/Modules/CVGenerator/TailorCV.CVGenerator.Worker/Dockerfile
     env_file:
       - path: .env
         required: false
@@ -27,6 +43,8 @@ services:
       - DOTNET_URLS=http://+:8080
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      api:
         condition: service_healthy
     networks:
       - tailorcv-network
@@ -44,8 +62,16 @@ services:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
       - DOTNET_URLS=http://+:8080
     depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - tailorcv-network
 
@@ -105,8 +131,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      RUSTFS_ACCESS_KEY: ${S3__AccessKey}      # ← was RUSTFS_ROOT_USER
-      RUSTFS_SECRET_KEY: ${S3__SecretKey}      # ← was RUSTFS_ROOT_PASSWORD
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
       RUSTFS_BROWSER: "on"
     volumes:
       - rustfs-data:/data

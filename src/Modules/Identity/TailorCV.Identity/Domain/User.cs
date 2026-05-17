@@ -59,6 +59,12 @@ public class User : Entity
 
     public RefreshToken CreateRefreshToken(DateTimeOffset now) =>
         RefreshToken.Create(Id, now);
+
+    public void UpdateName(string firstName, string lastName)
+    {
+        FirstName = firstName.Trim();
+        LastName = lastName.Trim();
+    }
 }
 
 #pragma warning restore CA1308

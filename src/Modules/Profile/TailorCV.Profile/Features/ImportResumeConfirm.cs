@@ -116,6 +116,7 @@ public static class ImportResumeConfirm
         .WithTags("Profile")
         .WithName("ImportResumeConfirm")
         .WithSummary("Confirm resume import")
-        .WithDescription("Confirms the parsed resume data and saves it to the profile. Creates profile if it doesn't exist.");
+        .WithDescription("Confirms the parsed resume data and saves it to the profile. Creates profile if it doesn't exist.")
+        .Produces<Response>();
     }
 }

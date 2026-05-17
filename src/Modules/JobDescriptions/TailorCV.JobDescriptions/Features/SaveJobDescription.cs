@@ -109,6 +109,7 @@ public static class SaveJobDescription
         .WithName("SaveJobDescription")
         .WithSummary("Save a parsed job description")
         .WithDescription("Saves a job description to the database for later reuse.")
+        .Produces<Response>(201)
         .RequireAuthorization();
     }
 }

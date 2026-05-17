@@ -115,7 +115,7 @@ Authorization: Bearer {accessToken}
    - Load ProfileSnapshot + JobSnapshot from the GeneratedCV record
    - Call OpenAI (`CoverLetterService`) with profile data + JD data + tailoringPrompt
    - Update `CoverLetter` field, set `UpdatedAt`
-   - Publish `CVGeneratedEvent` (cover letter variant)
+   - Publish `CoverLetterCompleted`
    - On failure → set cover letter error
 
 ## Inter-module Interactions
@@ -126,7 +126,7 @@ Authorization: Bearer {accessToken}
 
 | Service | Purpose | Resilience |
 |---------|---------|------------|
-| OpenAI API | Cover letter generation | Polly: 3 retries, exponential backoff |
+| OpenAI API | Cover letter generation | Wolverine built-in retry |
 
 ## Diagrams
 
@@ -164,7 +164,7 @@ sequenceDiagram
     WH->>AI: Generate cover letter (profile + JD + prompt)
     AI-->>WH: Cover letter text
     WH->>DB: Update CoverLetter field
-    WH->>W: PublishAsync(CVGeneratedEvent)
+    WH->>W: PublishAsync(CVTailoringCompleted)
 
     Note over C,AI: STEP 3 — Poll Status
     loop Polling every 3s

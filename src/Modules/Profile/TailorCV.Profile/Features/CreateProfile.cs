@@ -124,6 +124,7 @@ public static class CreateProfile
         .WithTags("Profile")
         .WithName("CreateProfile")
         .WithSummary("Create user profile")
-        .WithDescription("Creates a new professional profile for the authenticated user. One profile per user.");
+        .WithDescription("Creates a new professional profile for the authenticated user. One profile per user.")
+        .Produces<Response>(201);
     }
 }

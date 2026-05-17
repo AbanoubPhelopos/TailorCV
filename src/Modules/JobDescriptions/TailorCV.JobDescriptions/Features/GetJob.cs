@@ -81,6 +81,7 @@ public static class GetJob
         .WithName("GetJob")
         .WithSummary("Get a saved job description")
         .WithDescription("Returns full details of a saved job description.")
+        .Produces<Response>()
         .RequireAuthorization();
     }
 }

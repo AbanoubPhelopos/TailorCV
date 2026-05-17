@@ -78,6 +78,7 @@ public static class GetProfile
         .WithTags("Profile")
         .WithName("GetProfile")
         .WithSummary("Get current user profile")
-        .WithDescription("Returns the authenticated user's full profile with all sections.");
+        .WithDescription("Returns the authenticated user's full profile with all sections.")
+        .Produces<Response>();
     }
 }

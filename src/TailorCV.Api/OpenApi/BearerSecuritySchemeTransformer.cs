@@ -12,7 +12,7 @@ internal sealed class BearerSecuritySchemeTransformer(
         OpenApiDocumentTransformerContext context,
         CancellationToken cancellationToken)
     {
-        System.Collections.Generic.IEnumerable<AuthenticationScheme> authenticationSchemes =
+        IEnumerable<AuthenticationScheme> authenticationSchemes =
             await authenticationSchemeProvider.GetAllSchemesAsync();
 
         if (authenticationSchemes.Any(authScheme => authScheme.Name == "Bearer"))

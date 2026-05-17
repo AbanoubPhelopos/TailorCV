@@ -70,7 +70,8 @@ public static class Login
         .WithTags("Identity")
         .WithName("Login")
         .WithSummary("Authenticate and get tokens")
-        .WithDescription("Validates credentials and returns a new access token + refresh token pair.");
+        .WithDescription("Validates credentials and returns a new access token + refresh token pair.")
+        .Produces<Response>();
     }
 }
 

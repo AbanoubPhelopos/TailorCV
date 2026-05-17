@@ -93,6 +93,7 @@ public static class GetCompleteness
         .WithTags("Profile")
         .WithName("GetCompleteness")
         .WithSummary("Get profile completeness")
-        .WithDescription("Returns profile completeness percentage and a list of checks with suggestions.");
+        .WithDescription("Returns profile completeness percentage and a list of checks with suggestions.")
+        .Produces<Response>();
     }
 }

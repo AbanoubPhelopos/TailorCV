@@ -59,6 +59,7 @@ public static class ImportResumeParseStatus
         .WithTags("Profile")
         .WithName("ImportResumeParseStatus")
         .WithSummary("Poll parse status")
-        .WithDescription("Returns the status of a resume parsing job. Poll until DONE or FAILED.");
+        .WithDescription("Returns the status of a resume parsing job. Poll until DONE or FAILED.")
+        .Produces<Response>();
     }
 }

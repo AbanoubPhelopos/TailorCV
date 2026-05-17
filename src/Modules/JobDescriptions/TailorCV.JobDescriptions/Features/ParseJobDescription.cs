@@ -70,6 +70,7 @@ public static class ParseJobDescription
         .WithName("ParseJobDescription")
         .WithSummary("Parse a job description from raw text")
         .WithDescription("Triggers async AI parsing of a job description. Poll status endpoint for results.")
+        .Produces<Response>(202)
         .RequireAuthorization();
     }
 }

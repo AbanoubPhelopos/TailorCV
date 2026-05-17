@@ -138,7 +138,7 @@ Content-Disposition: attachment; filename="Jane_Smith_Senior_Software_Engineer_2
 | Service | Purpose | Resilience |
 |---------|---------|------------|
 | Templates gRPC | Fetch template for rendering | Built-in gRPC retry |
-| PuppeteerSharp | HTML → PDF conversion | Single attempt ( Chromium process) |
+| PuppeteerSharp | HTML → PDF conversion | Single attempt (Chromium process) |
 | RustFS (S3) | Store generated PDF | AWS SDK built-in retry |
 
 ## Diagrams
